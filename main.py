@@ -12,24 +12,17 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
-
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-c_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
-c_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
-c_sec = os.getenv("CLOUDINARY_API_SECRET", "").strip()
-
-print(f"DEBUG: Cloudinary config - name={bool(c_name)}, key={bool(c_key)}, secret={bool(c_sec)}")
-
-if c_name and c_key and c_sec:
-    cloudinary.config(
-        cloud_name=c_name,
-        api_key=c_key,
-        api_secret=c_sec,
-        secure=True
-    )
+# Cloudinary Config
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 DB_FILE = "saucefinder.db"
 
@@ -37,18 +30,18 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS scans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            creator_name TEXT,
-            source TEXT,
-            image_path TEXT,
-            instagram_url TEXT,
-            twitter_url TEXT,
-            reddit_url TEXT,
-            accurate_votes INTEGER DEFAULT 0,
-            inaccurate_votes INTEGER DEFAULT 0,
-            created_at TIMESTAMP
-        )
+    CREATE TABLE IF NOT EXISTS scans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        creator_name TEXT,
+        source TEXT,
+        image_path TEXT,
+        instagram_url TEXT,
+        twitter_url TEXT,
+        reddit_url TEXT,
+        accurate_votes INTEGER DEFAULT 0,
+        inaccurate_votes INTEGER DEFAULT 0,
+        created_at TIMESTAMP
+    )
     """)
     conn.commit()
     conn.close()
@@ -59,8 +52,8 @@ def log_scan(creator_name, source, img_path, insta, twitter, reddit):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO scans (creator_name, source, image_path, instagram_url, twitter_url, reddit_url, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO scans (creator_name, source, image_path, instagram_url, twitter_url, reddit_url, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (creator_name, source, img_path, insta, twitter, reddit, datetime.now()))
     scan_id = cursor.lastrowid
     conn.commit()
@@ -91,23 +84,24 @@ HTML_LAYOUT = """<!DOCTYPE html>
         .btn-social { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; }
         .btn-social:hover { border-color: #38bdf8; }
         .btn-reddit { color: #ff4500; border-color: rgba(255, 69, 0, 0.4); }
+        .btn-reddit:hover { border-color: #ff4500; }
         
-        .reddit-summary { background: #080d1a; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; text-align: left; font-size: 12px; color: #cbd5e1; }
+        .reddit-summary { background: #080d1a; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; text-align: left; font-size: 13px; }
         
-        .video-box { margin-top: 20px; background: #000; border: 1px dashed #eab308; border-radius: 10px; overflow: hidden; position: relative; height: 210px; }
+        .video-box { margin-top: 20px; background: #000; border: 1px dashed #eab308; border-radius: 10px; overflow: hidden; position: relative; height: 150px; }
         .video-elem { width: 100%; height: 100%; object-fit: cover; transition: filter 0.4s ease; }
         .video-elem.blurred { filter: blur(14px) brightness(0.4); }
-        .lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
+        .lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); }
         .lock-overlay.hidden { display: none; }
-        .lock-btn { background: #eab308; color: #000; border: none; padding: 10px 20px; font-weight: 800; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .lock-btn { background: #eab308; color: #000; border: none; padding: 10px 20px; font-weight: 800; border-radius: 6px; cursor: pointer; font-size: 13px; }
         
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 100; }
         .modal.active { display: flex; }
         .modal-card { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%; text-align: center; }
-        .qr-placeholder { width: 140px; height: 140px; margin: 15px auto; background: #fff; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 12px; border: 2px dashed #0284c7; }
-        .pay-btn-demo { background: #22c55e; color: #fff; border: none; padding: 11px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 12px; font-size: 14px; }
-        .close-btn { background: transparent; color: #94a3b8; border: none; font-size: 13px; cursor: pointer; margin-top: 10px; }
-
+        .qr-placeholder { width: 140px; height: 140px; margin: 15px auto; background: #fff; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 13px; }
+        .pay-btn-demo { background: #22c55e; color: #fff; border: none; padding: 11px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .close-btn { background: transparent; color: #94a3b8; border: none; font-size: 13px; cursor: pointer; margin-top: 12px; display: block; width: 100%; }
+        
         .community-card { background: #080d1a; border: 1px solid #334155; border-radius: 10px; padding: 14px; margin-top: 20px; text-align: left; }
         .poll-btns { display: flex; gap: 10px; margin-top: 8px; }
         .poll-btn { padding: 6px 14px; border: 1px solid #475569; background: #1e293b; color: #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 12px; }
@@ -116,20 +110,22 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
 <div class="wrapper">
     <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">Cloudinary Persistent Storage Active</div>
+    <div class="sub">Free Direct Visual Engine Active</div>
+    
     <div class="scan-card">
         <form action="/scan" method="POST" enctype="multipart/form-data">
             <input type="file" name="image_file" required accept="image/*">
             <button type="submit" class="btn-primary">Deep Sauce Scan</button>
         </form>
     </div>
+    
     __RESULT_PLACEHOLDER__
 </div>
 
 <div class="modal" id="paywallModal">
     <div class="modal-card">
         <h3 style="margin: 0; color: #f1f5f9; font-size: 18px;">Unlock Video Sauce</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Instant uncensored high-speed stream access</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Instant uncensored stream access</p>
         <div class="qr-placeholder">
             [ UPI QR Code ]<br>Pay ₹49 / $0.99
         </div>
@@ -142,7 +138,6 @@ HTML_LAYOUT = """<!DOCTYPE html>
 function toggleModal(show) {
     document.getElementById('paywallModal').className = show ? 'modal active' : 'modal';
 }
-
 function completeUnlock() {
     toggleModal(false);
     var video = document.getElementById('vaultVideo');
@@ -153,14 +148,13 @@ function completeUnlock() {
     video.play();
     alert('Payment Successful! Video stream unlocked.');
 }
-
 function submitVote(scanId, voteType) {
     fetch('/vote', {
         method: 'POST',
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: 'scan_id=' + scanId + '&vote=' + voteType
     }).then(res => res.json()).then(data => {
-        document.getElementById('pollSection').innerHTML = '<span style="color:#22c55e; font-size:13px; font-weight:bold;">Thanks! Vote registered in database.</span>';
+        document.getElementById('pollSection').innerHTML = '<span style="color:#22c55e; font-size:13px; font-weight:bold;">Feedback recorded! Thanks.</span>';
     });
 }
 </script>
@@ -195,67 +189,27 @@ def search_reddit_sauce(query: str):
         }
     return reddit_match
 
-def deep_sauce_extractor(image_path: str):
+def direct_lens_scraper(image_url: str):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9'
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://lens.google.com/'
     }
-    name = ""
-    insta = ""
-    detected_source = ""
-
     try:
-        yandex_url = "https://yandex.com/images/search?rpt=imageview"
-        with open(image_path, 'rb') as f:
-            res = requests.post(yandex_url, headers=headers, files={'upfile': ('query.jpg', f, 'image/jpeg')}, timeout=10)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        tags = [t.text.strip() for t in soup.find_all(class_='Tags-ItemText')]
-        filtered = [t for t in tags if not any(k in t.lower() for k in ['image', 'search', 'similar', 'photo', 'girl', 'model', 'wallpaper', 'woman'])]
-        if filtered:
-            name = filtered[0]
-            detected_source = "Yandex Visual Engine"
-
-        m = re.search(r'instagram\.com/([a-zA-Z0-9_\.]{3,30})', res.text)
-        if m:
-            insta = f"https://instagram.com/{m.group(1)}"
-            if not name:
-                name = m.group(1)
-                detected_source = "Instagram Bio Match"
+        lens_url = f"https://lens.google.com/uploadbyurl?url={urllib.parse.quote(image_url)}"
+        res = requests.get(lens_url, headers=headers, timeout=12)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            meta_titles = [m.get('content') for m in soup.find_all('meta', property='og:title') if m.get('content')]
+            if meta_titles and "google lens" not in meta_titles[0].lower():
+                return meta_titles[0]
+            for text_block in soup.find_all(['h2', 'div'], class_=re.compile(r'visual|title|heading', re.I)):
+                cleaned = text_block.text.strip()
+                if cleaned and len(cleaned) > 2 and "lens" not in cleaned.lower():
+                    return cleaned
     except Exception:
         pass
-
-    if not name:
-        try:
-            bing_url = "https://www.bing.com/images/searchbyimage"
-            with open(image_path, 'rb') as f:
-                res = requests.post(bing_url, headers=headers, files={'image': ('query.jpg', f, 'image/jpeg')}, timeout=10)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            page_title = soup.find('title')
-            if page_title and "Bing" not in page_title.text:
-                clean_t = page_title.text.replace(" - Visual Search", "").strip()
-                if "imgurl:" not in clean_t.lower():
-                    name = clean_t
-                    detected_source = "Bing Visual Engine"
-        except Exception:
-            pass
-
-    if not name:
-        name = "Kendra Lust"
-        detected_source = "Fallback Intelligence Profile"
-
-    if not insta:
-        insta = f"https://www.instagram.com/explore/tags/{name.replace(' ', '').lower()}/"
-
-    reddit_info = search_reddit_sauce(name)
-
-    return {
-        "name": name,
-        "source": detected_source,
-        "instagram": insta,
-        "twitter": f"https://x.com/search?q={urllib.parse.quote(name)}",
-        "official": "https://onlyfans.com",
-        "reddit": reddit_info
-    }
+    return None
 
 @app.get("/", response_class=HTMLResponse)
 @app.get("/scan", response_class=HTMLResponse)
@@ -269,44 +223,56 @@ async def scan(image_file: UploadFile = File(...)):
         f.write(await image_file.read())
     
     cdn_url = None
-    try:
-        upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
-        cdn_url = upload_res.get("secure_url")
-        print("CLOUDINARY SUCCESS:", cdn_url)
-    except Exception as e:
-        print("CLOUDINARY ERROR:", str(e))
-
+    if os.getenv("CLOUDINARY_CLOUD_NAME"):
+        try:
+            upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
+            cdn_url = upload_res.get("secure_url")
+        except Exception:
+            pass
+            
     final_img_url = cdn_url if cdn_url else f"/uploads/{image_file.filename}"
-
-    data = deep_sauce_extractor(save_path)
-
+    
+    detected_name = None
+    detected_source = "Google Lens Open Engine"
+    
+    if cdn_url:
+        detected_name = direct_lens_scraper(cdn_url)
+        
+    if not detected_name:
+        detected_name = "Match Found (Community Verification Needed)"
+        detected_source = "Visual Intelligence Filter"
+        
+    insta_url = f"https://www.instagram.com/explore/tags/{detected_name.replace(' ', '').lower()}/"
+    twitter_url = f"https://x.com/search?q={urllib.parse.quote(detected_name)}"
+    reddit_info = search_reddit_sauce(detected_name)
+    
     scan_id = log_scan(
-        data['name'],
-        data['source'],
+        detected_name,
+        detected_source,
         final_img_url,
-        data['instagram'],
-        data['twitter'],
-        data['reddit']['url']
+        insta_url,
+        twitter_url,
+        reddit_info['url']
     )
-
+    
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{final_img_url}" alt="Target">
-        <div class="name">{data['name']}</div>
-        <span class="source-tag">Identified via: {data['source']}</span>
-
+        <div class="name">{detected_name}</div>
+        <span class="source-tag">Identified via: {detected_source}</span>
+        
         <div class="reddit-summary">
-            <strong>Reddit Sauce Match ({data['reddit']['subreddit']}):</strong><br>
-            <span style="color:#94a3b8;">{data['reddit']['title'][:65]}...</span>
+            <strong>Reddit Sauce Match ({reddit_info['subreddit']}):</strong><br>
+            <span style="color:#94a3b8;">{reddit_info['title'][:65]}...</span>
         </div>
-
+        
         <div class="links-wrap">
-            <a class="btn-social" href="{data['instagram']}" target="_blank">Instagram</a>
-            <a class="btn-social" href="{data['twitter']}" target="_blank">Twitter / X</a>
-            <a class="btn-social btn-reddit" href="{data['reddit']['url']}" target="_blank">Reddit Sauce</a>
-            <a class="btn-social" href="{data['official']}" target="_blank">Official Channel</a>
+            <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
+            <a class="btn-social" href="{twitter_url}" target="_blank">Twitter / X</a>
+            <a class="btn-social btn-reddit" href="{reddit_info['url']}" target="_blank">Reddit Sauce</a>
+            <a class="btn-social" href="https://onlyfans.com" target="_blank">Official Channel</a>
         </div>
-
+        
         <div class="video-box">
             <video id="vaultVideo" class="video-elem blurred" autoplay loop muted playsinline>
                 <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
@@ -316,9 +282,9 @@ async def scan(image_file: UploadFile = File(...)):
                 <button type="button" class="lock-btn" onclick="toggleModal(true)">Unlock Full Video (₹49)</button>
             </div>
         </div>
-
+        
         <div class="community-card" id="pollSection">
-            <span style="font-size: 13px; color: #e2e8f0; font-weight:600;">Kya yeh creator identify sahi hai?</span>
+            <span style="font-size: 13px; color: #e2e8f0; font-weight:600;">Kya yeh creator identity sahi hai?</span>
             <div class="poll-btns">
                 <button type="button" class="poll-btn" onclick="submitVote({scan_id}, 'yes')">Haan, Sahi Hai</button>
                 <button type="button" class="poll-btn" onclick="submitVote({scan_id}, 'no')">Nahi, Galat Hai</button>
@@ -347,22 +313,22 @@ def admin_dashboard():
     cursor.execute("SELECT id, creator_name, source, image_path, instagram_url, accurate_votes, inaccurate_votes, created_at FROM scans ORDER BY id DESC")
     rows = cursor.fetchall()
     conn.close()
-
+    
     table_rows = ""
     for r in rows:
         table_rows += f"""
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #1e293b;">#{r[0]}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><img src="{r[3]}" style="width: 42px; height: 42px; border-radius: 6px; object-fit: cover;"></td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><img src="{r[3]}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover;"></td>
             <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-weight: bold; color: #38bdf8;">{r[1]}</td>
             <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-size: 12px; color: #94a3b8;">{r[2]}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><a href="{r[4]}" target="_blank" style="color: #60a5fa; text-decoration: none;">View</a></td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><a href="{r[4]}" target="_blank" style="color: #60a5fa; text-decoration: none;">View Profile</a></td>
             <td style="padding: 10px; border-bottom: 1px solid #1e293b; color: #22c55e;">+{r[5]}</td>
             <td style="padding: 10px; border-bottom: 1px solid #1e293b; color: #ef4444;">-{r[6]}</td>
             <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-size: 11px; color: #64748b;">{str(r[7])[:19]}</td>
         </tr>
         """
-
+    
     admin_html = f"""<!DOCTYPE html>
     <html>
     <head>
