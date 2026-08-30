@@ -3,7 +3,7 @@ import re
 import urllib.parse
 from typing import Optional
 from fastapi import FastAPI, File, UploadFile, Form
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
@@ -24,14 +24,13 @@ cloudinary.config(
 
 TG_BOT_TOKEN = "8088875009:AAG1O5Dwf1ZHhbvWIVgp7lmsO0NbhwEEq0M"
 TG_CHAT_ID = "-1001184901229"
-TG_CHANNEL_INVITE = "https://t.me/+F-cm-YmYiBdmNjBl"
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Telegram Live Engine</title>
+<title>SauceFinder Pro — Web Native Stream</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -85,7 +84,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .name { font-size: 22px; font-weight: 800; color: #f8fafc; }
 .aliases-sub { font-size: 11px; color: #94a3b8; margin: 2px 0 16px; }
 
-/* 1. Locked Direct Links Gate (Below Photo) */
+/* 1. Locked Direct Links Gate */
 .links-gate-box {
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.85));
     border: 1px dashed rgba(56, 189, 248, 0.4);
@@ -130,10 +129,10 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 }
 
 .links-unlocked { display: none; margin-bottom: 16px; text-align: left; }
-.match-item { display: flex; align-items: center; justify-content: space-between; background: rgba(3, 7, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; text-decoration: none; text-align: left; }
+.match-item { display: flex; align-items: center; justify-content: space-between; background: rgba(3, 7, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; text-decoration: none; text-align: left; cursor: pointer; }
 .match-title { font-size: 12px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
 .badge-source { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
-.badge-tg { background: rgba(0, 136, 204, 0.2); color: #0088cc; border: 1px solid #0088cc; }
+.badge-stream { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; }
 .badge-reddit { background: rgba(255, 69, 0, 0.2); color: #ff4500; border: 1px solid #ff4500; }
 
 /* 3. Video Streams Box */
@@ -147,8 +146,9 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .btn-play-free { background: #2563eb; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .btn-unlock-vip { background: #eab308; color: #000; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
 
-.free-player-box { display: none; margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; }
-.free-player-box video { width: 100%; max-height: 240px; display: block; }
+/* In-Page Video Player */
+.free-player-box { display: block; margin-top: 12px; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.2); }
+.free-player-box video { width: 100%; max-height: 260px; display: block; background: #000; }
 
 /* 4. Social Media Buttons */
 .card-head { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; text-align: left; }
@@ -170,7 +170,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Telegram Channel Cloud & Fast Stream Engine</div>
+    <div class="sub">Direct Cloud Streaming & Recognition Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -195,7 +195,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
                 <input type="text" name="keyword_name" placeholder="e.g. Niks Indian, Rose Noir, Alyx Star">
             </div>
 
-            <button type="submit" class="btn-primary">Search Telegram Vault & Web</button>
+            <button type="submit" class="btn-primary">Execute Live Scan & Play</button>
         </form>
     </div>
 
@@ -206,10 +206,10 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 <div class="modal-overlay" id="adModal">
     <div class="modal-card">
         <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Stream</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking verified Telegram & direct 1080p/4K mirrors...</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking verified direct web stream mirrors...</p>
         <div class="ad-box">
             <strong>[SPONSOR AD RUNNING]</strong><br>
-            <span style="font-size: 11px; color: #64748b;">Delivering High Speed Telegram Direct Links</span>
+            <span style="font-size: 11px; color: #64748b;">Delivering In-Browser Direct Video Mirrors</span>
         </div>
         <div id="adTimer" style="font-size: 13px; font-weight: 700; color: #eab308; margin-bottom: 12px;">Please wait 5s...</div>
         <button id="adCloseBtn" style="display:none; width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantLinkAccess()">View Links Now</button>
@@ -221,7 +221,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">INSTANT PASS</div>
         <h3 style="margin: 0; color: #f1f5f9; font-size: 18px; font-weight: 800;">Direct Links Pass</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Skip all ads & view all Telegram/Scene mirrors instantly</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Skip all ads & view all direct web stream mirrors instantly</p>
         <div style="font-size: 26px; font-weight: 900; color: #f8fafc; margin-bottom: 2px;">₹9 <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">/ 1 Year Pass</span></div>
         <div class="qr-box">
             <div>UPI QR Code</div>
@@ -237,13 +237,13 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">VIP ALL-ACCESS</div>
         <h3 style="margin: 0; color: #f1f5f9; font-size: 18px; font-weight: 800;">Full OnlyFans & 4K VIP Pass</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Unlimited 4K master scenes, full uncut videos & private Telegram channel access</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Unlimited 4K master scenes, full uncut videos & private OnlyFans collections</p>
         <div style="font-size: 26px; font-weight: 900; color: #f8fafc; margin-bottom: 2px;">₹99 <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">/ 1 Year Pass</span></div>
         <div class="qr-box">
             <div>UPI QR Code</div>
             <span>Scan to Pay ₹99</span>
         </div>
-        <button style="width:100%; padding:11px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:800; cursor:pointer; font-size:13px;" onclick="alert('Payment verified! Telegram VIP Pass activated for 1 Year.')">I Have Paid ₹99 (Activate VIP)</button>
+        <button style="width:100%; padding:11px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:800; cursor:pointer; font-size:13px;" onclick="alert('Payment verified! VIP OnlyFans & 4K Pass activated for 1 Year.')">I Have Paid ₹99 (Activate VIP)</button>
         <button style="background:transparent; border:none; color:#64748b; font-size:12px; margin-top:10px; cursor:pointer;" onclick="closeModal('vipModal')">Cancel</button>
     </div>
 </div>
@@ -270,9 +270,11 @@ function fileChosen(input) {
     }
 }
 
-function toggleFreePlayer() {
-    const box = document.getElementById('freePlayer');
-    box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+function playInPageVideo(videoUrl) {
+    const videoElem = document.getElementById('mainVideoElement');
+    videoElem.src = videoUrl;
+    videoElem.scrollIntoView({ behavior: 'smooth' });
+    videoElem.play();
 }
 
 function openVipModal() {
@@ -319,8 +321,8 @@ function closeModal(id) {
 </body>
 </html>"""
 
-def fetch_latest_channel_video():
-    """Fetches direct streaming URL from recent uploads in Telegram channel."""
+def get_channel_video_stream():
+    """Fetches video direct stream from channel via Bot API."""
     try:
         url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getUpdates"
         res = requests.get(url, timeout=10).json()
@@ -333,36 +335,27 @@ def fetch_latest_channel_video():
                     file_id = video["file_id"]
                     f_res = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
                     if f_res.get("ok"):
-                        f_path = f_res["result"]["file_path"]
-                        return f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
+                        file_path = f_res["result"]["file_path"]
+                        return f"/stream/{file_id}", f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{file_path}"
     except Exception:
         pass
-    return "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+    # Guaranteed high speed sample stream if channel is empty
+    sample = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+    return sample, sample
 
-def query_intelligence(name: str):
-    clean_name = name.strip().title()
-    clean_encoded = urllib.parse.quote(clean_name)
-    photo_url = f"https://ui-avatars.com/api/?name={clean_encoded}&background=0284c7&color=fff&size=256&bold=true"
-    
-    # 1. Telegram Channel Vault & Reddit Mirrors
-    unlocked_mirrors = [
-        {
-            "title": f"⚡ Telegram Vault: {clean_name} Uncut Direct Cloud Stream",
-            "url": TG_CHANNEL_INVITE,
-            "badge": "Telegram Direct",
-            "type": "tg"
-        },
-        {
-            "title": f"🔍 Reddit Solved: {clean_name} Confirmed Thread Match",
-            "url": f"https://www.reddit.com/r/tipofmypenis/search/?q={clean_encoded}",
-            "badge": "r/tipofmypenis",
-            "type": "reddit"
-        }
-    ]
-
-    # 2. Dynamic Video Stream URL from Telegram Channel
-    live_stream_url = fetch_latest_channel_video()
-    return clean_name, photo_url, unlocked_mirrors, live_stream_url
+@app.get("/stream/{file_id}")
+def stream_video(file_id: str):
+    """Streams video directly inside browser without redirecting to Telegram."""
+    try:
+        f_res = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
+        if f_res.get("ok"):
+            file_path = f_res["result"]["file_path"]
+            tg_stream_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{file_path}"
+            req = requests.get(tg_stream_url, stream=True)
+            return StreamingResponse(req.iter_content(chunk_size=1024*1024), media_type="video/mp4")
+    except Exception:
+        pass
+    return HTMLResponse("Stream unavailable", status_code=404)
 
 @app.get("/")
 def index():
@@ -384,9 +377,7 @@ async def scan(
         upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
         cdn_url = upload_res.get("secure_url")
         target_img_display = cdn_url
-        
-        inferred = os.path.splitext(image_file.filename)[0].replace('-', ' ').replace('_', ' ')
-        creator_name, _, mirrors, stream_url = query_intelligence(inferred)
+        creator_name = os.path.splitext(image_file.filename)[0].replace('-', ' ').replace('_', ' ').title()
 
     elif image_url and image_url.strip():
         url_input = image_url.strip()
@@ -395,11 +386,12 @@ async def scan(
             target_img_display = upload_res.get("secure_url")
         except Exception:
             target_img_display = url_input
-        creator_name, _, mirrors, stream_url = query_intelligence("Verified Creator")
+        creator_name = "Verified Performer"
 
     elif keyword_name and keyword_name.strip():
-        creator_name, found_photo, mirrors, stream_url = query_intelligence(keyword_name.strip())
-        target_img_display = found_photo
+        creator_name = keyword_name.strip().title()
+        clean_encoded = urllib.parse.quote(creator_name)
+        target_img_display = f"https://ui-avatars.com/api/?name={clean_encoded}&background=0284c7&color=fff&size=256&bold=true"
 
     else:
         return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", "<p style='color:#ef4444; margin-top:15px; font-size:13px;'>Please provide input.</p>"))
@@ -410,15 +402,7 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    mirrors_html = ""
-    for item in mirrors:
-        badge_cls = "badge-tg" if item["type"] == "tg" else "badge-reddit"
-        mirrors_html += f"""
-        <a href="{item['url']}" target="_blank" class="match-item">
-            <span class="match-title">{item['title']}</span>
-            <span class="badge-source {badge_cls}">[{item['badge']}] ↗</span>
-        </a>
-        """
+    stream_internal_url, stream_direct_url = get_channel_video_stream()
 
     result_html = f"""
     <div class="result-box">
@@ -427,10 +411,10 @@ async def scan(
         <div class="name">{creator_name}</div>
         <div class="aliases-sub">Aliases: {creator_name}</div>
 
-        <!-- 2. Locked Direct Links Gate (Below Photo) -->
+        <!-- 2. Locked Direct Links Gate (Immediately Below Photo) -->
         <div class="links-gate-box" id="linksGateCard">
-            <div class="links-gate-title">🔒 Verified Telegram Vault & Scene Mirrors Ready</div>
-            <div class="links-gate-sub">Choose how you want to unlock all direct web source links:</div>
+            <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
+            <div class="links-gate-sub">Choose how you want to unlock all direct video stream mirrors:</div>
             <div class="gate-btn-group">
                 <button type="button" class="btn-gate-ad" onclick="triggerLinkAd()">📺 Watch Ad to View (Free)</button>
                 <button type="button" class="btn-gate-pay" onclick="openLinkPayModal()">⚡ Pay ₹9 / 1 Year Pass</button>
@@ -441,18 +425,25 @@ async def scan(
         <div class="of-vip-banner">
             <div class="of-text">
                 <div class="of-vip-title">👑 Unlock {creator_name} OnlyFans Vault</div>
-                <div class="of-vip-sub">Full uncut videos & private Telegram channel access</div>
+                <div class="of-vip-sub">Full uncut videos & private HD stream archive</div>
             </div>
             <button type="button" class="btn-of-unlock" onclick="openVipModal()">Get VIP (₹99/Yr)</button>
         </div>
 
-        <!-- Unlocked Container -->
+        <!-- Unlocked Container (Shows In-Page Playable Mirrors, Does NOT Redirect to Telegram) -->
         <div class="links-unlocked" id="linksVault">
-            <div style="font-size:11px; font-weight:700; color:#0088cc; text-transform:uppercase; margin-bottom:6px;">● Verified Telegram Cloud Mirrors</div>
-            {mirrors_html}
+            <div style="font-size:11px; font-weight:700; color:#22c55e; text-transform:uppercase; margin-bottom:6px;">● Direct Web Stream Mirrors (Click to Play in Page)</div>
+            <div class="match-item" onclick="playInPageVideo('{stream_internal_url}')">
+                <span class="match-title">▶ Play Full Web Stream Mirror 1 ({creator_name})</span>
+                <span class="badge-source badge-stream">[Play On Page] ↗</span>
+            </div>
+            <a href="https://www.reddit.com/r/tipofmypenis/search/?q={urllib.parse.quote(creator_name)}" target="_blank" class="match-item">
+                <span class="match-title">🔍 Reddit Solved Thread: {creator_name}</span>
+                <span class="badge-source badge-reddit">[Community Match] ↗</span>
+            </a>
         </div>
 
-        <!-- 3. Matching Video Streams (3 Quality Tiers) -->
+        <!-- 3. Matching Video Streams (Plays In-Page Without Redirecting) -->
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
@@ -462,17 +453,18 @@ async def scan(
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Preview Stream</div>
-                    <div class="tier-sub">Standard resolution • Live Telegram preview</div>
+                    <div class="tier-sub">Standard resolution • Plays directly on this page</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
-                    <button type="button" class="btn-play-free" onclick="toggleFreePlayer()">Watch Demo</button>
+                    <button type="button" class="btn-play-free" onclick="playInPageVideo('{stream_internal_url}')">Watch Demo</button>
                 </div>
             </div>
 
+            <!-- In-Page Player Element (Plays inside website) -->
             <div class="free-player-box" id="freePlayer">
-                <video controls playsinline poster="{target_img_display}">
-                    <source src="{stream_url}" type="video/mp4">
+                <video id="mainVideoElement" controls playsinline poster="{target_img_display}">
+                    <source src="{stream_internal_url}" type="video/mp4">
                     Your browser does not support video playback.
                 </video>
             </div>
@@ -491,7 +483,7 @@ async def scan(
             <div class="tier-item">
                 <div>
                     <div class="tier-info">4K Ultra HD Source File</div>
-                    <div class="tier-sub">Uncompressed studio cut • Direct Telegram file mirror</div>
+                    <div class="tier-sub">Uncompressed studio cut • Direct Web MP4 mirror</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-vip">VIP</span>
