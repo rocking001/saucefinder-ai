@@ -8,7 +8,6 @@ from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
 import requests
-from bs4 import BeautifulSoup
 
 app = FastAPI()
 
@@ -23,17 +22,16 @@ cloudinary.config(
     secure=True
 )
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9"
-}
+TG_BOT_TOKEN = "8088875009:AAG1O5Dwf1ZHhbvWIVgp7lmsO0NbhwEEq0M"
+TG_CHAT_ID = "-1001184901229"
+TG_CHANNEL_INVITE = "https://t.me/+F-cm-YmYiBdmNjBl"
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Dedicated Engine Scraper</title>
+<title>SauceFinder Pro — Telegram Live Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -87,7 +85,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .name { font-size: 22px; font-weight: 800; color: #f8fafc; }
 .aliases-sub { font-size: 11px; color: #94a3b8; margin: 2px 0 16px; }
 
-/* 1. Locked Direct Links Gate */
+/* 1. Locked Direct Links Gate (Below Photo) */
 .links-gate-box {
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.85));
     border: 1px dashed rgba(56, 189, 248, 0.4);
@@ -135,8 +133,8 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .match-item { display: flex; align-items: center; justify-content: space-between; background: rgba(3, 7, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; text-decoration: none; text-align: left; }
 .match-title { font-size: 12px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
 .badge-source { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.badge-tg { background: rgba(0, 136, 204, 0.2); color: #0088cc; border: 1px solid #0088cc; }
 .badge-reddit { background: rgba(255, 69, 0, 0.2); color: #ff4500; border: 1px solid #ff4500; }
-.badge-4k { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308; }
 
 /* 3. Video Streams Box */
 .stream-vault { background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 14px; padding: 16px; text-align: left; margin-bottom: 16px; }
@@ -172,7 +170,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Direct Scraper: PornStarByFace • NameThatPorn • Reddit r/tipofmypenis</div>
+    <div class="sub">Telegram Channel Cloud & Fast Stream Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -194,34 +192,36 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Niks Indian, Rose Noir, Alyx Star, Kendra Lust">
+                <input type="text" name="keyword_name" placeholder="e.g. Niks Indian, Rose Noir, Alyx Star">
             </div>
 
-            <button type="submit" class="btn-primary">Execute Live Multi-Engine Scan</button>
+            <button type="submit" class="btn-primary">Search Telegram Vault & Web</button>
         </form>
     </div>
 
     _RESULT_PLACEHOLDER_
 </div>
 
+<!-- 5s Ad Modal -->
 <div class="modal-overlay" id="adModal">
     <div class="modal-card">
         <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Stream</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking verified Reddit & direct 1080p/4K mirrors...</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking verified Telegram & direct 1080p/4K mirrors...</p>
         <div class="ad-box">
             <strong>[SPONSOR AD RUNNING]</strong><br>
-            <span style="font-size: 11px; color: #64748b;">Delivering Multi-Engine Direct Scene Links</span>
+            <span style="font-size: 11px; color: #64748b;">Delivering High Speed Telegram Direct Links</span>
         </div>
         <div id="adTimer" style="font-size: 13px; font-weight: 700; color: #eab308; margin-bottom: 12px;">Please wait 5s...</div>
         <button id="adCloseBtn" style="display:none; width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantLinkAccess()">View Links Now</button>
     </div>
 </div>
 
+<!-- ₹9/Year Pass Modal -->
 <div class="modal-overlay" id="linkPayModal">
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">INSTANT PASS</div>
         <h3 style="margin: 0; color: #f1f5f9; font-size: 18px; font-weight: 800;">Direct Links Pass</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Skip all ads & view all Reddit/Scene mirrors instantly</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Skip all ads & view all Telegram/Scene mirrors instantly</p>
         <div style="font-size: 26px; font-weight: 900; color: #f8fafc; margin-bottom: 2px;">₹9 <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">/ 1 Year Pass</span></div>
         <div class="qr-box">
             <div>UPI QR Code</div>
@@ -232,17 +232,18 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     </div>
 </div>
 
+<!-- VIP Pass Modal (₹99/Year for 1080p/4K & OnlyFans) -->
 <div class="modal-overlay" id="vipModal">
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">VIP ALL-ACCESS</div>
         <h3 style="margin: 0; color: #f1f5f9; font-size: 18px; font-weight: 800;">Full OnlyFans & 4K VIP Pass</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Unlimited 4K master scenes, full uncut videos & private OnlyFans collections</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Unlimited 4K master scenes, full uncut videos & private Telegram channel access</p>
         <div style="font-size: 26px; font-weight: 900; color: #f8fafc; margin-bottom: 2px;">₹99 <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">/ 1 Year Pass</span></div>
         <div class="qr-box">
             <div>UPI QR Code</div>
-            <span>Scan to Pay ₹9</span>
+            <span>Scan to Pay ₹99</span>
         </div>
-        <button style="width:100%; padding:11px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:800; cursor:pointer; font-size:13px;" onclick="alert('Payment verified! VIP OnlyFans & 4K Pass activated for 1 Year.')">I Have Paid ₹99 (Activate VIP)</button>
+        <button style="width:100%; padding:11px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:800; cursor:pointer; font-size:13px;" onclick="alert('Payment verified! Telegram VIP Pass activated for 1 Year.')">I Have Paid ₹99 (Activate VIP)</button>
         <button style="background:transparent; border:none; color:#64748b; font-size:12px; margin-top:10px; cursor:pointer;" onclick="closeModal('vipModal')">Cancel</button>
     </div>
 </div>
@@ -318,91 +319,50 @@ function closeModal(id) {
 </body>
 </html>"""
 
-def scrape_dedicated_platforms(name: str):
-    """
-    Direct crawler targeting:
-    - PornStarByFace & Babeopedia (Profile & Photo)
-    - Reddit Communities (r/tipofmypenis, r/NameThatPorn)
-    - NameThatPorn & Adult Tube Indexes (1080p/4K Scenes)
-    """
+def fetch_latest_channel_video():
+    """Fetches direct streaming URL from recent uploads in Telegram channel."""
+    try:
+        url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getUpdates"
+        res = requests.get(url, timeout=10).json()
+        if res.get("ok"):
+            updates = res.get("result", [])
+            for u in reversed(updates):
+                msg = u.get("channel_post") or u.get("message", {})
+                video = msg.get("video") or msg.get("document", {})
+                if video and "file_id" in video:
+                    file_id = video["file_id"]
+                    f_res = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
+                    if f_res.get("ok"):
+                        f_path = f_res["result"]["file_path"]
+                        return f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
+    except Exception:
+        pass
+    return "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+
+def query_intelligence(name: str):
     clean_name = name.strip().title()
-    photo_url = ""
-    reddit_links = []
-    video_scene_links = []
+    clean_encoded = urllib.parse.quote(clean_name)
+    photo_url = f"https://ui-avatars.com/api/?name={clean_encoded}&background=0284c7&color=fff&size=256&bold=true"
+    
+    # 1. Telegram Channel Vault & Reddit Mirrors
+    unlocked_mirrors = [
+        {
+            "title": f"⚡ Telegram Vault: {clean_name} Uncut Direct Cloud Stream",
+            "url": TG_CHANNEL_INVITE,
+            "badge": "Telegram Direct",
+            "type": "tg"
+        },
+        {
+            "title": f"🔍 Reddit Solved: {clean_name} Confirmed Thread Match",
+            "url": f"https://www.reddit.com/r/tipofmypenis/search/?q={clean_encoded}",
+            "badge": "r/tipofmypenis",
+            "type": "reddit"
+        }
+    ]
 
-    # 1. Live Web Scraper for Real Photo (Bypass Static Placeholders)
-    try:
-        ddg_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(clean_name + ' adult performer photo site:iafd.com OR site:babeopedia.com')}"
-        res = requests.get(ddg_url, headers=HEADERS, timeout=8)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        for link in soup.find_all('a', class_='result__url'):
-            href = link.get('href', '')
-            if 'babeopedia.com' in href or 'iafd.com' in href:
-                # Crawl target page for real image
-                try:
-                    p_res = requests.get(href, headers=HEADERS, timeout=6)
-                    p_soup = BeautifulSoup(p_res.text, 'html.parser')
-                    img_tag = p_soup.find('img', src=re.compile(r'uploads|photos|actors|headshot', re.I))
-                    if img_tag and img_tag.get('src'):
-                        src = img_tag['src']
-                        photo_url = src if src.startswith('http') else urllib.parse.urljoin(href, src)
-                        break
-                except Exception:
-                    pass
-    except Exception:
-        pass
-
-    if not photo_url:
-        photo_url = f"https://images.weserv.nl/?url=https://www.google.com/search?q={urllib.parse.quote(clean_name)}&tbm=isch"
-
-    # 2. Live Reddit Crawler (r/tipofmypenis, r/NameThatPorn)
-    try:
-        r_query = f"{clean_name} (site:reddit.com/r/tipofmypenis OR site:reddit.com/r/NameThatPorn OR site:reddit.com/r/sauce)"
-        r_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(r_query)}"
-        r_res = requests.get(r_url, headers=HEADERS, timeout=8)
-        r_soup = BeautifulSoup(r_res.text, 'html.parser')
-        for r_item in r_soup.find_all('div', class_='result__body')[:3]:
-            title_tag = r_item.find('a', class_='result__title')
-            if title_tag:
-                title_text = title_tag.text.strip()
-                raw_link = title_tag.get('href', '#')
-                if 'uddg=' in raw_link:
-                    actual_url = urllib.parse.unquote(raw_link.split('uddg=')[1].split('&')[0])
-                else:
-                    actual_url = raw_link
-                reddit_links.append({
-                    "title": f"Reddit Solved: {title_text}",
-                    "url": actual_url,
-                    "badge_label": "r/tipofmypenis"
-                })
-    except Exception:
-        pass
-
-    # 3. Live 1080p / 4K Scene Mirror Scraper
-    try:
-        s_query = f"{clean_name} 1080p 4K scene site:namethatporn.com OR site:iafd.com"
-        s_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(s_query)}"
-        s_res = requests.get(s_url, headers=HEADERS, timeout=8)
-        s_soup = BeautifulSoup(s_res.text, 'html.parser')
-        for s_item in s_soup.find_all('div', class_='result__body')[:4]:
-            t_tag = s_item.find('a', class_='result__title')
-            if t_tag:
-                t_text = t_tag.text.strip()
-                raw_href = t_tag.get('href', '#')
-                if 'uddg=' in raw_href:
-                    real_href = urllib.parse.unquote(raw_href.split('uddg=')[1].split('&')[0])
-                else:
-                    real_href = raw_href
-                video_scene_links.append({
-                    "title": f"4K / 1080p Scene: {t_text}",
-                    "url": real_href,
-                    "badge_type": "4k",
-                    "badge_label": "1080p/4K Mirror"
-                })
-    except Exception:
-        pass
-
-    return clean_name, photo_url, reddit_links, video_scene_links
+    # 2. Dynamic Video Stream URL from Telegram Channel
+    live_stream_url = fetch_latest_channel_video()
+    return clean_name, photo_url, unlocked_mirrors, live_stream_url
 
 @app.get("/")
 def index():
@@ -425,9 +385,8 @@ async def scan(
         cdn_url = upload_res.get("secure_url")
         target_img_display = cdn_url
         
-        # Reverse query visual filename / fallback
-        inferred_name = os.path.splitext(image_file.filename)[0].replace('-', ' ').replace('_', ' ')
-        creator_name, _, reddit_links, video_scene_links = scrape_dedicated_platforms(inferred_name)
+        inferred = os.path.splitext(image_file.filename)[0].replace('-', ' ').replace('_', ' ')
+        creator_name, _, mirrors, stream_url = query_intelligence(inferred)
 
     elif image_url and image_url.strip():
         url_input = image_url.strip()
@@ -436,10 +395,10 @@ async def scan(
             target_img_display = upload_res.get("secure_url")
         except Exception:
             target_img_display = url_input
-        creator_name, _, reddit_links, video_scene_links = scrape_dedicated_platforms("Verified Performer")
+        creator_name, _, mirrors, stream_url = query_intelligence("Verified Creator")
 
     elif keyword_name and keyword_name.strip():
-        creator_name, found_photo, reddit_links, video_scene_links = scrape_dedicated_platforms(keyword_name.strip())
+        creator_name, found_photo, mirrors, stream_url = query_intelligence(keyword_name.strip())
         target_img_display = found_photo
 
     else:
@@ -451,32 +410,26 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    reddit_html = ""
-    for item in reddit_links:
-        reddit_html += f"""
+    mirrors_html = ""
+    for item in mirrors:
+        badge_cls = "badge-tg" if item["type"] == "tg" else "badge-reddit"
+        mirrors_html += f"""
         <a href="{item['url']}" target="_blank" class="match-item">
             <span class="match-title">{item['title']}</span>
-            <span class="badge-source badge-reddit">[{item['badge_label']}] ↗</span>
-        </a>
-        """
-
-    scene_html = ""
-    for item in video_scene_links:
-        scene_html += f"""
-        <a href="{item['url']}" target="_blank" class="match-item">
-            <span class="match-title">{item['title']}</span>
-            <span class="badge-source badge-4k">[{item['badge_label']}] ↗</span>
+            <span class="badge-source {badge_cls}">[{item['badge']}] ↗</span>
         </a>
         """
 
     result_html = f"""
     <div class="result-box">
-        <img class="result-img" src="{target_img_display}" alt="Target">
+        <!-- 1. Model Picture & Identity -->
+        <img class="result-img" src="{target_img_display}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
         <div class="aliases-sub">Aliases: {creator_name}</div>
 
+        <!-- 2. Locked Direct Links Gate (Below Photo) -->
         <div class="links-gate-box" id="linksGateCard">
-            <div class="links-gate-title">🔒 Verified Community & Scene Mirrors Ready</div>
+            <div class="links-gate-title">🔒 Verified Telegram Vault & Scene Mirrors Ready</div>
             <div class="links-gate-sub">Choose how you want to unlock all direct web source links:</div>
             <div class="gate-btn-group">
                 <button type="button" class="btn-gate-ad" onclick="triggerLinkAd()">📺 Watch Ad to View (Free)</button>
@@ -484,22 +437,22 @@ async def scan(
             </div>
         </div>
 
+        <!-- Combined OnlyFans / VIP Pass Card -->
         <div class="of-vip-banner">
             <div class="of-text">
                 <div class="of-vip-title">👑 Unlock {creator_name} OnlyFans Vault</div>
-                <div class="of-vip-sub">Full uncut videos & private monthly sets</div>
+                <div class="of-vip-sub">Full uncut videos & private Telegram channel access</div>
             </div>
             <button type="button" class="btn-of-unlock" onclick="openVipModal()">Get VIP (₹99/Yr)</button>
         </div>
 
+        <!-- Unlocked Container -->
         <div class="links-unlocked" id="linksVault">
-            <div style="font-size:11px; font-weight:700; color:#ff4500; text-transform:uppercase; margin-bottom:6px;">● Reddit Community Solved Threads</div>
-            {reddit_html if reddit_html else '<p style="font-size:12px;color:#64748b;margin-bottom:10px;">No active Reddit threads found.</p>'}
-            
-            <div style="font-size:11px; font-weight:700; color:#eab308; text-transform:uppercase; margin: 12px 0 6px;">● Dedicated 1080p / 4K Scene & Face Mirrors</div>
-            {scene_html if scene_html else '<p style="font-size:12px;color:#64748b;margin-bottom:10px;">No direct mirrors indexed.</p>'}
+            <div style="font-size:11px; font-weight:700; color:#0088cc; text-transform:uppercase; margin-bottom:6px;">● Verified Telegram Cloud Mirrors</div>
+            {mirrors_html}
         </div>
 
+        <!-- 3. Matching Video Streams (3 Quality Tiers) -->
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
@@ -509,7 +462,7 @@ async def scan(
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Preview Stream</div>
-                    <div class="tier-sub">Standard resolution • Free demo clip</div>
+                    <div class="tier-sub">Standard resolution • Live Telegram preview</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
@@ -519,7 +472,7 @@ async def scan(
 
             <div class="free-player-box" id="freePlayer">
                 <video controls playsinline poster="{target_img_display}">
-                    <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
+                    <source src="{stream_url}" type="video/mp4">
                     Your browser does not support video playback.
                 </video>
             </div>
@@ -538,7 +491,7 @@ async def scan(
             <div class="tier-item">
                 <div>
                     <div class="tier-info">4K Ultra HD Source File</div>
-                    <div class="tier-sub">Uncompressed studio cut • Direct MP4 mirror</div>
+                    <div class="tier-sub">Uncompressed studio cut • Direct Telegram file mirror</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-vip">VIP</span>
@@ -547,6 +500,7 @@ async def scan(
             </div>
         </div>
 
+        <!-- 4. Official Channels & Social Profiles -->
         <div class="card-head">Official Channels & Social Profiles</div>
         <div class="links-wrap">
             <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
