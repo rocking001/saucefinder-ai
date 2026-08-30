@@ -92,7 +92,7 @@ button.btn-primary:hover { background: #1d4ed8; }
     <div class="divider">— OR —</div>
     
     <span class="input-label">Option 3: Model Name / Scene Keyword</span>
-    <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Kendra Lust, Scene Name">
+    <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Nika Venom, Kendra Lust">
     
     <button type="submit" class="btn-primary">Deep Sauce Scan</button>
 </form>
@@ -179,8 +179,20 @@ def search_by_text_keyword(query: str):
     api_key = os.getenv("SERPAPI_API_KEY")
     clean_name = query.title()
     matched_links = []
+    found_photo = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300"
     
     if api_key:
+        # 1. Real photo search for creator
+        img_search_url = f"https://serpapi.com/search.json?engine=google_images&q={urllib.parse.quote(query + ' portrait')}&api_key={api_key}"
+        try:
+            img_res = requests.get(img_search_url, timeout=12).json()
+            images = img_res.get("images_results", [])
+            if images:
+                found_photo = images[0].get("original") or images[0].get("thumbnail", found_photo)
+        except Exception:
+            pass
+
+        # 2. Real video links search
         url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(query + ' video')}&api_key={api_key}"
         try:
             res = requests.get(url, timeout=15).json()
@@ -194,7 +206,7 @@ def search_by_text_keyword(query: str):
         except Exception:
             pass
 
-    return clean_name, f"Full biographical profile and index data for {clean_name}.", "Google Index", matched_links
+    return clean_name, f"Full biographical profile and index data for {clean_name}.", "Google Index", matched_links, found_photo
 
 @app.get("/")
 def index():
@@ -230,8 +242,8 @@ async def scan(
 
     # 3. Direct Name / Keyword Search
     elif keyword_name and keyword_name.strip():
-        target_img_display = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300"
-        creator_name, bio_summary, primary_src, matched_links = search_by_text_keyword(keyword_name.strip())
+        creator_name, bio_summary, primary_src, matched_links, found_photo = search_by_text_keyword(keyword_name.strip())
+        target_img_display = found_photo
 
     else:
         return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", "<p style='color:#ef4444; margin-top:15px;'>Kripya Photo, Image URL ya Name me se koi ek cheez fill karein.</p>"))
