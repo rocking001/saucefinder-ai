@@ -1,18 +1,13 @@
 ﻿import os
-import re
-import json
-import sqlite3
 import urllib.parse
-from datetime import datetime
-import requests
-from bs4 import BeautifulSoup
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
-from fastapi import FastAPI, File, UploadFile, Form
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
+
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -24,374 +19,84 @@ cloudinary.config(
     secure=True
 )
 
-DB_FILE = "saucefinder.db"
-
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS scans (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        creator_name TEXT,
-        source TEXT,
-        image_path TEXT,
-        instagram_url TEXT,
-        twitter_url TEXT,
-        reddit_url TEXT,
-        accurate_votes INTEGER DEFAULT 0,
-        inaccurate_votes INTEGER DEFAULT 0,
-        created_at TIMESTAMP
-    )
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS known_vectors (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        keyword TEXT UNIQUE,
-        name TEXT,
-        bio TEXT,
-        instagram TEXT,
-        twitter TEXT,
-        official TEXT
-    )
-    """)
-    # Seed top known profiles for Layer 1 instant hit
-    cursor.execute("""
-    INSERT OR IGNORE INTO known_vectors (keyword, name, bio, instagram, twitter, official)
-    VALUES 
-    ('malkova', 'Mia Malkova', 'American creator, internet personality & digital creator.', 'https://instagram.com/itsmiamalkova', 'https://x.com/MiaMalkova', 'https://onlyfans.com/miamalkova'),
-    ('kendra', 'Kendra Lust', 'Acclaimed creator, director, and internet public figure.', 'https://instagram.com/kendralust', 'https://x.com/kendralust', 'https://onlyfans.com/kendralust'),
-    ('khalifa', 'Mia K.', 'Global internet personality, media creator & host.', 'https://instagram.com/miakhalifa', 'https://x.com/miakhalifa', 'https://onlyfans.com')
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def log_scan(creator_name, source, img_path, insta, twitter, reddit):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("""
-    INSERT INTO scans (creator_name, source, image_path, instagram_url, twitter_url, reddit_url, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (creator_name, source, img_path, insta, twitter, reddit, datetime.now()))
-    scan_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return scan_id
-
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SauceFinder AI - 3-Tier Unlimited Search Engine</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f1f5f9; margin: 0; padding: 40px 15px; display: flex; flex-direction: column; align-items: center; }
-        .wrapper { max-width: 520px; width: 100%; text-align: center; }
-        .title { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
-        .sub { font-size: 13px; color: #64748b; margin-bottom: 25px; }
-        .scan-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 22px; text-align: left; }
-        input[type="file"] { width: 100%; padding: 11px; background: #080d1a; border: 1px solid #334155; border-radius: 8px; color: #fff; box-sizing: border-box; margin-bottom: 12px; }
-        button.btn-primary { width: 100%; padding: 13px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; }
-        button.btn-primary:hover { background: #1d4ed8; }
-        
-        .result-box { margin-top: 25px; background: #0f172a; border: 1px solid #3b82f6; border-radius: 12px; padding: 22px; text-align: center; }
-        .result-img { width: 125px; height: 125px; border-radius: 50%; object-fit: cover; border: 3px solid #3b82f6; margin-bottom: 12px; }
-        .name { font-size: 24px; font-weight: 800; margin: 5px 0 6px; color: #38bdf8; }
-        .badge-source { display: inline-block; font-size: 11px; padding: 4px 10px; border-radius: 20px; background: #1e293b; color: #10b981; border: 1px solid #334155; margin-bottom: 14px; font-weight: 600; }
-        
-        .bio-box { background: #080d1a; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; font-size: 13px; color: #cbd5e1; line-height: 1.5; margin-bottom: 15px; text-align: left; }
-        
-        .links-wrap { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
-        .btn-social { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; }
-        .btn-social:hover { border-color: #38bdf8; }
-        .btn-client { background: #0ea5e9; color: #fff; border: none; font-weight: 700; }
-        .btn-reddit { color: #ff4500; border-color: rgba(255, 69, 0, 0.4); }
-        
-        .video-box { margin-top: 20px; background: #000; border: 1px dashed #eab308; border-radius: 10px; overflow: hidden; position: relative; height: 150px; }
-        .video-elem { width: 100%; height: 100%; object-fit: cover; transition: filter 0.4s ease; }
-        .video-elem.blurred { filter: blur(14px) brightness(0.4); }
-        .lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); }
-        .lock-overlay.hidden { display: none; }
-        .lock-btn { background: #eab308; color: #000; border: none; padding: 10px 20px; font-weight: 800; border-radius: 6px; cursor: pointer; font-size: 13px; }
-        
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 100; }
-        .modal.active { display: flex; }
-        .modal-card { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%; text-align: center; }
-        .qr-placeholder { width: 140px; height: 140px; margin: 15px auto; background: #fff; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 13px; }
-        .pay-btn-demo { background: #22c55e; color: #fff; border: none; padding: 11px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .close-btn { background: transparent; color: #94a3b8; border: none; font-size: 13px; cursor: pointer; margin-top: 12px; display: block; width: 100%; }
-        
-        .community-card { background: #080d1a; border: 1px solid #334155; border-radius: 10px; padding: 14px; margin-top: 20px; text-align: left; }
-        .poll-btns { display: flex; gap: 10px; margin-top: 8px; }
-        .poll-btn { padding: 6px 14px; border: 1px solid #475569; background: #1e293b; color: #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 12px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SauceFinder AI Engine</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f8fafc; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.wrapper { max-width: 520px; width: 100%; padding: 20px; text-align: center; }
+.title { font-size: 26px; font-weight: 800; margin-bottom: 6px; color: #38bdf8; }
+.sub { font-size: 13px; color: #64748b; margin-bottom: 25px; }
+.scan-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 22px; text-align: left; }
+input[type="file"] { width: 100%; padding: 11px; background: #080d1a; border: 1px solid #334155; border-radius: 8px; color: #cbd5e1; }
+button.btn-primary { width: 100%; padding: 13px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-weight: 700; margin-top: 15px; cursor: pointer; }
+button.btn-primary:hover { background: #1d4ed8; }
+.result-box { margin-top: 25px; background: #0f172a; border: 1px solid #3b82f6; border-radius: 12px; padding: 22px; }
+.result-img { width: 130px; height: 130px; border-radius: 50%; object-fit: cover; border: 3px solid #3b82f6; margin-bottom: 12px; }
+.action-box { background: #080d1a; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin: 16px 0; text-align: left; }
+.btn-launch { display: block; width: 100%; padding: 12px; background: #0ea5e9; color: #fff; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 10px; box-sizing: border-box; }
+.btn-launch:hover { background: #0284c7; }
+.video-box { margin-top: 20px; background: #000; border: 1px dashed #eab308; border-radius: 10px; overflow: hidden; height: 220px; position: relative; }
+.video-elem { width: 100%; height: 100%; object-fit: cover; filter: blur(14px) brightness(0.4); }
+.lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); }
+.lock-btn { background: #eab308; color: #000; border: none; padding: 10px 20px; font-weight: 800; border-radius: 6px; cursor: pointer; }
+</style>
 </head>
 <body>
 <div class="wrapper">
-    <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">3-Tier Cascade Active: Local Vector → Stealth Crawler → Client Lens</div>
-    
-    <div class="scan-card">
-        <form action="/scan" method="POST" enctype="multipart/form-data">
-            <input type="file" name="image_file" required accept="image/*">
-            <button type="submit" class="btn-primary">Deep Sauce Scan</button>
-        </form>
-    </div>
-    
-    __RESULT_PLACEHOLDER__
+<div class="title">SauceFinder AI</div>
+<div class="sub">Zero-Limit Client Bridge Search</div>
+<div class="scan-card">
+<form action="/scan" method="POST" enctype="multipart/form-data">
+<input type="file" name="image_file" required accept="image/*">
+<button type="submit" class="btn-primary">Deep Sauce Scan</button>
+</form>
 </div>
-
-<div class="modal" id="paywallModal">
-    <div class="modal-card">
-        <h3 style="margin: 0; color: #f1f5f9; font-size: 18px;">Unlock Video Sauce</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Instant uncensored stream access</p>
-        <div class="qr-placeholder">
-            [ UPI QR Code ]<br>Pay ₹49 / $0.99
-        </div>
-        <button class="pay-btn-demo" onclick="completeUnlock()">Instant Unlock (Demo / Test)</button>
-        <button class="close-btn" onclick="toggleModal(false)">Cancel</button>
-    </div>
+_RESULT_PLACEHOLDER_
 </div>
-
-<script>
-function toggleModal(show) {
-    document.getElementById('paywallModal').className = show ? 'modal active' : 'modal';
-}
-function completeUnlock() {
-    toggleModal(false);
-    var video = document.getElementById('vaultVideo');
-    var overlay = document.getElementById('lockOverlay');
-    video.classList.remove('blurred');
-    overlay.classList.add('hidden');
-    video.controls = true;
-    video.play();
-    alert('Payment Successful! Video stream unlocked.');
-}
-function submitVote(scanId, voteType) {
-    fetch('/vote', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: 'scan_id=' + scanId + '&vote=' + voteType
-    }).then(res => res.json()).then(data => {
-        document.getElementById('pollSection').innerHTML = '<span style="color:#22c55e; font-size:13px; font-weight:bold;">Feedback recorded! Thanks.</span>';
-    });
-}
-</script>
 </body>
 </html>"""
 
-def layer1_vector_cache(filename: str):
-    """Layer 1: Offline instant matching using filename/cached index"""
-    fn = filename.lower()
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, bio, instagram, twitter, official FROM known_vectors")
-    rows = cursor.fetchall()
-    conn.close()
-    for r in rows:
-        if r[0].lower().split()[0] in fn or (len(r[0].split()) > 1 and r[0].lower().split()[1] in fn):
-            return {
-                "name": r[0],
-                "bio": r[1],
-                "instagram": r[2],
-                "twitter": r[3],
-                "official": r[4],
-                "source": "Tier 1: Local Vector Cache (0.01s)"
-            }
-    return None
-
-def layer2_stealth_crawler(image_path: str):
-    """Layer 2: Stealth scraping via mobile headers"""
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9'
-    }
-    url = "https://yandex.com/images/search?rpt=imageview"
-    try:
-        with open(image_path, 'rb') as f:
-            res = requests.post(url, headers=headers, files={'upfile': ('q.jpg', f, 'image/jpeg')}, timeout=12)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        tags = [t.text.strip() for t in soup.find_all(class_='Tags-ItemText')]
-        filtered = [t for t in tags if not any(k in t.lower() for k in ['image', 'search', 'similar', 'photo', 'wallpaper', 'girl'])]
-        if filtered:
-            found_name = filtered[0].title()
-            return {
-                "name": found_name,
-                "bio": f"Identified public personality matching visual tags: {found_name}.",
-                "instagram": f"https://www.instagram.com/explore/tags/{found_name.replace(' ', '').lower()}/",
-                "twitter": f"https://x.com/search?q={urllib.parse.quote(found_name)}",
-                "official": "https://onlyfans.com",
-                "source": "Tier 2: Live Stealth Crawler"
-            }
-    except Exception:
-        pass
-    return None
-
-@app.get("/", response_class=HTMLResponse)
-@app.get("/scan", response_class=HTMLResponse)
+@app.get("/")
 def index():
-    return HTML_LAYOUT.replace("__RESULT_PLACEHOLDER__", "")
+    return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", ""))
 
-@app.post("/scan", response_class=HTMLResponse)
+@app.post("/scan")
 async def scan(image_file: UploadFile = File(...)):
     save_path = os.path.join(UPLOAD_DIR, image_file.filename)
     with open(save_path, "wb") as f:
         f.write(await image_file.read())
-    
-    cdn_url = None
-    if os.getenv("CLOUDINARY_CLOUD_NAME"):
-        try:
-            upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
-            cdn_url = upload_res.get("secure_url")
-        except Exception:
-            pass
-            
-    final_img_url = cdn_url if cdn_url else f"/uploads/{image_file.filename}"
-    
-    # Execution: 3-Tier Fallback Cascade
-    profile = layer1_vector_cache(image_file.filename)
-    
-    if not profile:
-        profile = layer2_stealth_crawler(save_path)
-        
-    if not profile:
-        # Tier 3: Client-Side Lens Forwarding
-        profile = {
-            "name": "Live Match Ready (1-Click Source)",
-            "bio": "Direct browser session match active to prevent cloud server blocks.",
-            "instagram": "https://instagram.com",
-            "twitter": "https://x.com",
-            "official": "https://onlyfans.com",
-            "source": "Tier 3: Client-Side Direct Lens Bridge"
-        }
-    
-    client_lens_url = f"https://lens.google.com/uploadbyurl?url={urllib.parse.quote(final_img_url)}"
-    reddit_url = f"https://www.reddit.com/search/?q={urllib.parse.quote(profile['name'])}"
-    
-    scan_id = log_scan(
-        profile['name'],
-        profile['source'],
-        final_img_url,
-        profile['instagram'],
-        profile['twitter'],
-        reddit_url
-    )
-    
+
+    # Upload to Cloudinary for public reachable URL
+    upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
+    cdn_url = upload_res.get("secure_url")
+
+    lens_url = f"https://lens.google.com/uploadbyurl?url={urllib.parse.quote(cdn_url)}"
+    yandex_url = f"https://yandex.com/images/search?rpt=imageview&url={urllib.parse.quote(cdn_url)}"
+
     result_html = f"""
     <div class="result-box">
-        <img class="result-img" src="{final_img_url}" alt="Target">
-        <div class="name">{profile['name']}</div>
-        <div class="badge-source">{profile['source']}</div>
+        <img class="result-img" src="{cdn_url}" alt="Target">
+        <h3 style="margin: 0; color: #38bdf8;">Visual Target Ready</h3>
         
-        <div class="bio-box">
-            {profile['bio']}
+        <div class="action-box">
+            <span style="font-size: 13px; color: #94a3b8;">Click below to load matching creator data without server limits:</span>
+            <a href="{lens_url}" target="_blank" class="btn-launch">Open Google Lens Match Window</a>
+            <a href="{yandex_url}" target="_blank" class="btn-launch" style="background:#475569; margin-top:6px;">Open Yandex Face Match</a>
         </div>
-        
-        <div class="links-wrap">
-            <a class="btn-social btn-client" href="{client_lens_url}" target="_blank">🔍 Open Live Google Lens</a>
-            <a class="btn-social" href="{profile['instagram']}" target="_blank">Instagram Profile</a>
-            <a class="btn-social" href="{profile['twitter']}" target="_blank">Twitter / X</a>
-            <a class="btn-social btn-reddit" href="{reddit_url}" target="_blank">Reddit Discussions</a>
-            <a class="btn-social" href="{profile['official']}" target="_blank">Official Channel</a>
-        </div>
-        
+
         <div class="video-box">
-            <video id="vaultVideo" class="video-elem blurred" autoplay loop muted playsinline>
+            <video class="video-elem" autoplay loop muted playsinline>
                 <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
             </video>
-            <div id="lockOverlay" class="lock-overlay">
-                <div style="font-size: 13px; font-weight: 700; color: #fef08a; margin-bottom: 8px;">🔒 Full Video Stream Locked</div>
-                <button type="button" class="lock-btn" onclick="toggleModal(true)">Unlock Full Video (₹49)</button>
-            </div>
-        </div>
-        
-        <div class="community-card" id="pollSection">
-            <span style="font-size: 13px; color: #e2e8f0; font-weight:600;">Kya yeh identification sahi hai?</span>
-            <div class="poll-btns">
-                <button type="button" class="poll-btn" onclick="submitVote({scan_id}, 'yes')">Haan, Sahi Hai</button>
-                <button type="button" class="poll-btn" onclick="submitVote({scan_id}, 'no')">Nahi, Galat Hai</button>
+            <div class="lock-overlay">
+                <div style="font-size: 13px; font-weight: 700; color: #fef08a; margin-bottom: 8px;">Full Video Sauce Stream</div>
+                <button type="button" class="lock-btn" onclick="alert('Payment Demo Complete')">Unlock Full Video (₹49)</button>
             </div>
         </div>
     </div>
     """
-    return HTML_LAYOUT.replace("__RESULT_PLACEHOLDER__", result_html)
-
-@app.post("/vote")
-async def vote(scan_id: int = Form(...), vote: str = Form(...)):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    if vote == 'yes':
-        cursor.execute("UPDATE scans SET accurate_votes = accurate_votes + 1 WHERE id = ?", (scan_id,))
-    else:
-        cursor.execute("UPDATE scans SET inaccurate_votes = inaccurate_votes + 1 WHERE id = ?", (scan_id,))
-    conn.commit()
-    conn.close()
-    return JSONResponse({"status": "success"})
-
-@app.get("/admin", response_class=HTMLResponse)
-def admin_dashboard():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, creator_name, source, image_path, instagram_url, accurate_votes, inaccurate_votes, created_at FROM scans ORDER BY id DESC")
-    rows = cursor.fetchall()
-    conn.close()
-    
-    table_rows = ""
-    for r in rows:
-        table_rows += f"""
-        <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b;">#{r[0]}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><img src="{r[3]}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover;"></td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-weight: bold; color: #38bdf8;">{r[1]}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-size: 12px; color: #94a3b8;">{r[2]}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><a href="{r[4]}" target="_blank" style="color: #60a5fa; text-decoration: none;">View Profile</a></td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b; color: #22c55e;">+{r[5]}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b; color: #ef4444;">-{r[6]}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-size: 11px; color: #64748b;">{str(r[7])[:19]}</td>
-        </tr>
-        """
-    
-    admin_html = f"""<!DOCTYPE html>
-    <html>
-    <head>
-        <title>SauceFinder AI - Admin Dashboard</title>
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f1f5f9; padding: 30px; margin: 0; }}
-            .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }}
-            h1 {{ font-size: 22px; margin: 0; }}
-            .stats {{ background: #0f172a; border: 1px solid #1e293b; padding: 12px 20px; border-radius: 8px; font-size: 14px; }}
-            table {{ width: 100%; border-collapse: collapse; background: #0f172a; border-radius: 8px; overflow: hidden; border: 1px solid #1e293b; }}
-            th {{ background: #1e293b; padding: 12px 10px; text-align: left; font-size: 13px; color: #94a3b8; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <div>
-                <h1>SauceFinder Intelligence Panel</h1>
-                <p style="color: #64748b; font-size: 13px; margin: 4px 0 0;">Live SQLite Database Overview & Poll Audits</p>
-            </div>
-            <div class="stats">
-                Total Scans: <strong style="color: #38bdf8;">{len(rows)}</strong>
-            </div>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Image</th>
-                    <th>Identified Creator</th>
-                    <th>Detection Engine</th>
-                    <th>Social</th>
-                    <th>Accuracy (Yes)</th>
-                    <th>Inaccurate (No)</th>
-                    <th>Timestamp</th>
-                </tr>
-            </thead>
-            <tbody>
-                {table_rows}
-            </tbody>
-        </table>
-    </body>
-    </html>"""
-    return HTMLResponse(admin_html)
+    return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", result_html))
