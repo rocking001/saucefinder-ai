@@ -18,7 +18,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SauceFinder AI - Deep Multi-Source Search</title>
+    <title>SauceFinder AI - Video Sauce & Identity</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f1f5f9; margin: 0; padding: 40px 15px; display: flex; flex-direction: column; align-items: center; }
         .wrapper { max-width: 520px; width: 100%; text-align: center; }
@@ -28,22 +28,35 @@ HTML_LAYOUT = """<!DOCTYPE html>
         input[type="file"] { width: 100%; padding: 11px; background: #080d1a; border: 1px solid #334155; border-radius: 8px; color: #fff; box-sizing: border-box; margin-bottom: 12px; }
         button.btn-primary { width: 100%; padding: 13px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; }
         button.btn-primary:hover { background: #1d4ed8; }
+        
         .result-box { margin-top: 25px; background: #0f172a; border: 1px solid #3b82f6; border-radius: 12px; padding: 22px; text-align: center; }
         .result-img { width: 125px; height: 125px; border-radius: 50%; object-fit: cover; border: 3px solid #3b82f6; margin-bottom: 12px; }
         .name { font-size: 22px; font-weight: 700; margin: 5px 0 6px; color: #38bdf8; }
         .source-tag { font-size: 12px; color: #94a3b8; margin-bottom: 14px; display: block; }
         .links-wrap { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
-        .btn-social { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-social { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; }
         .btn-social:hover { border-color: #38bdf8; }
         .btn-reddit { color: #ff4500; border-color: rgba(255, 69, 0, 0.4); }
-        .btn-reddit:hover { border-color: #ff4500; }
         
         .reddit-summary { background: #080d1a; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; text-align: left; font-size: 12px; color: #cbd5e1; }
         
-        .video-box { margin-top: 15px; background: #080d1a; border: 1px dashed #eab308; border-radius: 10px; padding: 16px; position: relative; }
-        .video-blur { filter: blur(6px); opacity: 0.3; height: 90px; background: #1e293b; border-radius: 6px; }
-        .lock-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; }
-        .lock-btn { background: #eab308; color: #000; border: none; padding: 9px 18px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        /* Interactive Video Vault */
+        .video-box { margin-top: 20px; background: #000; border: 1px dashed #eab308; border-radius: 10px; overflow: hidden; position: relative; height: 210px; }
+        .video-elem { width: 100%; height: 100%; object-fit: cover; transition: filter 0.4s ease; }
+        .video-elem.blurred { filter: blur(14px) brightness(0.4); }
+        .lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
+        .lock-overlay.hidden { display: none; }
+        .lock-btn { background: #eab308; color: #000; border: none; padding: 10px 20px; font-weight: 800; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3); }
+        .lock-btn:hover { background: #facc15; }
+        
+        /* Payment Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-card { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%; text-align: center; }
+        .qr-placeholder { width: 140px; height: 140px; margin: 15px auto; background: #fff; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 12px; border: 2px dashed #0284c7; }
+        .pay-btn-demo { background: #22c55e; color: #fff; border: none; padding: 11px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 12px; font-size: 14px; }
+        .close-btn { background: transparent; color: #94a3b8; border: none; font-size: 13px; cursor: pointer; margin-top: 10px; }
+
         .community-card { background: #080d1a; border: 1px solid #334155; border-radius: 10px; padding: 14px; margin-top: 20px; text-align: left; }
         .poll-btns { display: flex; gap: 10px; margin-top: 8px; }
         .poll-btn { padding: 6px 14px; border: 1px solid #475569; background: #1e293b; color: #cbd5e1; border-radius: 6px; cursor: pointer; font-size: 12px; }
@@ -52,7 +65,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
 <div class="wrapper">
     <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">Deep Multi-Source Extractor (Web + Reddit API + Social Metadata)</div>
+    <div class="sub">Deep Multi-Source Video Extractor & Vault</div>
     <div class="scan-card">
         <form action="/scan" method="POST" enctype="multipart/form-data">
             <input type="file" name="image_file" required accept="image/*">
@@ -61,11 +74,39 @@ HTML_LAYOUT = """<!DOCTYPE html>
     </div>
     __RESULT_PLACEHOLDER__
 </div>
+
+<div class="modal" id="paywallModal">
+    <div class="modal-card">
+        <h3 style="margin: 0; color: #f1f5f9; font-size: 18px;">Unlock Video Sauce</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Instant uncensored high-speed stream access</p>
+        <div class="qr-placeholder">
+            [ UPI QR Code ]<br>Pay ₹49 / $0.99
+        </div>
+        <button class="pay-btn-demo" onclick="completeUnlock()">Instant Unlock (Demo / Test)</button>
+        <button class="close-btn" onclick="toggleModal(false)">Cancel</button>
+    </div>
+</div>
+
+<script>
+function toggleModal(show) {
+    document.getElementById('paywallModal').className = show ? 'modal active' : 'modal';
+}
+
+function completeUnlock() {
+    toggleModal(false);
+    var video = document.getElementById('vaultVideo');
+    var overlay = document.getElementById('lockOverlay');
+    video.classList.remove('blurred');
+    overlay.classList.add('hidden');
+    video.controls = true;
+    video.play();
+    alert('Payment Successful! Video stream unlocked.');
+}
+</script>
 </body>
 </html>"""
 
 def search_reddit_sauce(query: str):
-    """Reddit open public endpoint query to find threads discussing this creator/sauce"""
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     clean_query = urllib.parse.quote(query)
     reddit_url = f"https://www.reddit.com/search.json?q={clean_query}&limit=3"
@@ -103,7 +144,6 @@ def deep_sauce_extractor(image_path: str):
     insta = ""
     detected_source = "Direct Visual Recognition"
 
-    # Step 1: Visual Web Scraping
     try:
         with open(image_path, 'rb') as f:
             res = requests.post(yandex_url, headers=headers, files={'upfile': ('query.jpg', f, 'image/jpeg')}, timeout=15)
@@ -131,7 +171,6 @@ def deep_sauce_extractor(image_path: str):
     if not insta:
         insta = f"https://www.instagram.com/explore/tags/{name.replace(' ', '').lower()}/"
 
-    # Step 2: Query Reddit Sauce Communities
     reddit_info = search_reddit_sauce(name)
 
     return {
@@ -162,7 +201,6 @@ async def scan(image_file: UploadFile = File(...)):
         <div class="name">{data['name']}</div>
         <span class="source-tag">Identified via: {data['source']}</span>
 
-        <!-- Reddit Community Sauce Findings -->
         <div class="reddit-summary">
             <strong>Reddit Sauce Match ({data['reddit']['subreddit']}):</strong><br>
             <span style="color:#94a3b8;">{data['reddit']['title'][:65]}...</span>
@@ -171,15 +209,17 @@ async def scan(image_file: UploadFile = File(...)):
         <div class="links-wrap">
             <a class="btn-social" href="{data['instagram']}" target="_blank">Instagram</a>
             <a class="btn-social" href="{data['twitter']}" target="_blank">Twitter / X</a>
-            <a class="btn-social btn-reddit" href="{data['reddit']['url']}" target="_blank">Reddit Sauce Thread</a>
+            <a class="btn-social btn-reddit" href="{data['reddit']['url']}" target="_blank">Reddit Sauce</a>
             <a class="btn-social" href="{data['official']}" target="_blank">Official Channel</a>
         </div>
 
         <div class="video-box">
-            <div class="video-blur"></div>
-            <div class="lock-overlay">
-                <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Exclusive Video Sauce Found (Locked)</div>
-                <button type="button" class="lock-btn" onclick="alert('Payment Module: Unlock Video for ₹49 / $0.99');">Unlock Full Video</button>
+            <video id="vaultVideo" class="video-elem blurred" autoplay loop muted playsinline>
+                <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
+            </video>
+            <div id="lockOverlay" class="lock-overlay">
+                <div style="font-size: 13px; font-weight: 700; color: #fef08a; margin-bottom: 8px;">🔒 Full Video Stream Locked</div>
+                <button type="button" class="lock-btn" onclick="toggleModal(true)">Unlock Full Video (₹49)</button>
             </div>
         </div>
 
