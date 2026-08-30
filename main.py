@@ -57,6 +57,7 @@ def init_db():
     VALUES
     ('Alyx Star', 'Alyx88, Alyx, AlyxStarX', 'Caucasian', 'Brown / Dark', 'Hazel', '5 ft 2 in (157 cm)', '2019 - Present', 'Brazzers, Reality Kings', 'Star Power, Digital Passion'),
     ('Nika Venom', 'VenomNika, Nika', 'Caucasian', 'Dark Brown', 'Brown', '5 ft 4 in (162 cm)', '2018 - Present', 'Vixen Media, Blacked', 'Midnight Glow, Urban Shadows'),
+    ('Rose Noir', 'Rose Noir, Known Performer', 'International', 'Brunette / Natural', 'Natural', '5 ft 4 in (162 cm)', '2020 - Present', 'Digital Network', 'Signature Collection'),
     ('Kendra Lust', 'Francine Dee, Kendra', 'Caucasian / Latina', 'Brown', 'Brown', '5 ft 4 in (163 cm)', '2012 - Present', 'Sweet Sinner, Brazzers', 'Lust for Life, Timeless')
     """)
     conn.commit()
@@ -135,51 +136,6 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .name { font-size: 22px; font-weight: 800; color: #f8fafc; }
 .aliases-sub { font-size: 11px; color: #94a3b8; margin: 2px 0 14px; }
 
-/* Action Choice Box Directly Under Model Picture */
-.access-action-card {
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85));
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 18px;
-    text-align: center;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
-}
-.access-action-title { font-size: 13px; font-weight: 700; color: #f8fafc; margin-bottom: 4px; }
-.access-action-sub { font-size: 11px; color: #94a3b8; margin-bottom: 12px; }
-.action-btn-group { display: flex; gap: 8px; }
-.btn-ad-choice {
-    flex: 1;
-    background: linear-gradient(135deg, #0284c7, #0369a1);
-    color: #fff;
-    border: none;
-    padding: 11px 8px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-    transition: transform 0.15s;
-}
-.btn-ad-choice:hover { transform: translateY(-1px); }
-.btn-pay-choice {
-    flex: 1;
-    background: linear-gradient(135deg, #eab308, #ca8a04);
-    color: #000;
-    border: none;
-    padding: 11px 8px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    font-family: inherit;
-    transition: transform 0.15s;
-}
-.btn-pay-choice:hover { transform: translateY(-1px); }
-
-/* Hidden content before unlock */
-.unlocked-section { display: none; margin-top: 14px; }
-
 .metric-strip { display: flex; gap: 8px; margin-bottom: 16px; }
 .metric-pill { flex: 1; background: rgba(3, 7, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.06); padding: 8px 4px; border-radius: 8px; }
 .metric-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; }
@@ -192,9 +148,35 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .data-lbl { color: #64748b; font-weight: 500; width: 38%; }
 .data-val { color: #f1f5f9; font-weight: 600; }
 
-.links-wrap { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.links-wrap { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .btn-social { flex: 1; min-width: 80px; background: rgba(30, 41, 59, 0.6); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); padding: 8px 6px; border-radius: 7px; text-decoration: none; font-size: 11px; font-weight: 600; text-align: center; }
 
+/* Video & Archive Gate */
+.archive-gate-card {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8));
+    border: 1px dashed rgba(56, 189, 248, 0.4);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+    text-align: center;
+}
+.archive-gate-title { font-size: 13px; font-weight: 700; color: #f8fafc; margin-bottom: 4px; }
+.archive-gate-sub { font-size: 11px; color: #94a3b8; margin-bottom: 10px; }
+.btn-watch-gate {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    color: #fff;
+    border: none;
+    padding: 11px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+.btn-watch-gate:hover { transform: translateY(-1px); }
+
+.links-unlocked { display: none; margin-bottom: 14px; }
 .match-item { display: flex; align-items: center; justify-content: space-between; background: rgba(3, 7, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 9px 12px; margin-bottom: 6px; text-decoration: none; text-align: left; }
 .match-title { font-size: 12px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 290px; }
 .match-src { font-size: 10px; color: #eab308; font-weight: 600; }
@@ -203,10 +185,35 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .tag-input-box input { flex: 1; padding: 8px 10px; background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: #fff; font-size: 12px; }
 .tag-input-box button { padding: 8px 12px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
 
-/* Modals */
+/* Choice Dialog Modal */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 999; align-items: center; justify-content: center; padding: 16px; }
 .modal-overlay.active { display: flex; }
 .modal-card { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 22px; max-width: 360px; width: 100%; text-align: center; }
+
+.choice-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.btn-choice-ad {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+}
+.btn-choice-pay {
+    background: linear-gradient(135deg, #eab308, #ca8a04);
+    color: #000;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: inherit;
+}
+
 .ad-box { background: rgba(3, 7, 18, 0.6); border: 1.5px dashed #475569; padding: 20px 10px; border-radius: 10px; margin: 12px 0; color: #cbd5e1; font-size: 13px; }
 .qr-box { background: #fff; border-radius: 8px; width: 130px; height: 130px; margin: 12px auto; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 13px; }
 </style>
@@ -239,7 +246,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Nika Venom, Kendra Lust">
+                <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Rose Noir, Kendra Lust">
             </div>
 
             <button type="submit" class="btn-primary">Execute Multi-Tier Scan</button>
@@ -249,28 +256,41 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     _RESULT_PLACEHOLDER_
 </div>
 
-<!-- Ad Modal -->
+<!-- Step 1: Choice Modal (Watch Ad vs Pay 9) -->
+<div class="modal-overlay" id="choiceModal">
+    <div class="modal-card">
+        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Unlock Video & Source Links</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 0;">Choose how you want to unlock matching streams:</p>
+        <div class="choice-grid">
+            <button type="button" class="btn-choice-ad" onclick="startAdCountdown()">📺 Watch Short Ad to Unlock (Free)</button>
+            <button type="button" class="btn-choice-pay" onclick="openPaymentQR()">⚡ Pay ₹9 for Instant Access</button>
+        </div>
+        <button style="background:transparent; border:none; color:#64748b; font-size:12px; margin-top:12px; cursor:pointer;" onclick="closeModal('choiceModal')">Cancel</button>
+    </div>
+</div>
+
+<!-- Step 2: Ad Countdown Modal -->
 <div class="modal-overlay" id="adModal">
     <div class="modal-card">
-        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Verification</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking complete scene archives...</p>
+        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Stream</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking internet source mirrors...</p>
         <div class="ad-box">
             <strong>[SPONSOR NETWORK AD]</strong><br>
             <span style="font-size: 11px; color: #64748b;">Delivering High Speed Source Matches</span>
         </div>
         <div id="adTimer" style="font-size: 13px; font-weight: 700; color: #eab308; margin-bottom: 12px;">Please wait 5s...</div>
-        <button id="adCloseBtn" style="display:none; width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantAccess()">View All Matches</button>
+        <button id="adCloseBtn" style="display:none; width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantAccess()">View All Video Links</button>
     </div>
 </div>
 
-<!-- UPI ₹9 Modal -->
+<!-- Step 3: UPI ₹9 Modal -->
 <div class="modal-overlay" id="payModal">
     <div class="modal-card">
-        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Instant Instant Pass</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 8px;">Skip ads and unlock instant full access</p>
+        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Instant Pass</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 8px;">Skip ads and unlock instant full archives</p>
         <div class="qr-box">UPI Pay ₹9</div>
-        <p style="font-size: 11px; color: #38bdf8; margin-bottom: 12px;">Scan UPI QR to activate VIP pass</p>
-        <button style="width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantAccess()">I Have Paid ₹9 (Demo Unlock)</button>
+        <p style="font-size: 11px; color: #38bdf8; margin-bottom: 12px;">Scan UPI QR to activate pass</p>
+        <button style="width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantAccess()">I Have Paid ₹9 (Unlock Now)</button>
         <button style="background:transparent; border:none; color:#64748b; font-size:12px; margin-top:8px; cursor:pointer;" onclick="closeModal('payModal')">Cancel</button>
     </div>
 </div>
@@ -297,10 +317,19 @@ function fileChosen(input) {
     }
 }
 
+function openChoiceModal() {
+    document.getElementById('choiceModal').className = 'modal-overlay active';
+}
+
+function closeModal(id) {
+    document.getElementById(id).className = 'modal-overlay';
+}
+
 let count = 5;
 let timerInterval = null;
 
-function triggerAdFlow() {
+function startAdCountdown() {
+    closeModal('choiceModal');
     count = 5;
     document.getElementById('adModal').className = 'modal-overlay active';
     document.getElementById('adTimer').style.display = 'block';
@@ -319,19 +348,16 @@ function triggerAdFlow() {
     }, 1000);
 }
 
-function triggerPayFlow() {
+function openPaymentQR() {
+    closeModal('choiceModal');
     document.getElementById('payModal').className = 'modal-overlay active';
-}
-
-function closeModal(id) {
-    document.getElementById(id).className = 'modal-overlay';
 }
 
 function grantAccess() {
     closeModal('adModal');
     closeModal('payModal');
-    document.getElementById('actionGate').style.display = 'none';
-    document.getElementById('fullVaultContent').style.display = 'block';
+    document.getElementById('gateCard').style.display = 'none';
+    document.getElementById('linksVault').style.display = 'block';
 }
 
 function submitCommunityTag(targetName) {
@@ -402,7 +428,6 @@ def search_by_text_keyword(query: str):
     found_photo = ""
     
     if api_key:
-        # Search real portrait
         img_search_url = f"https://serpapi.com/search.json?engine=google_images&q={urllib.parse.quote(query + ' portrait model')}&api_key={api_key}"
         try:
             img_res = requests.get(img_search_url, timeout=12).json()
@@ -412,7 +437,6 @@ def search_by_text_keyword(query: str):
         except Exception:
             pass
 
-        # Search matching video links
         url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(query + ' video scene')}&api_key={api_key}"
         try:
             res = requests.get(url, timeout=15).json()
@@ -458,7 +482,6 @@ async def scan(
         creator_name, _, primary_src, matched_links = extract_lens_full_report(cdn_url)
 
     elif image_url and image_url.strip():
-        # Download and upload to Cloudinary to guarantee persistent image display
         url_input = image_url.strip()
         try:
             upload_res = cloudinary.uploader.upload(url_input, folder="saucefinder_scans")
@@ -478,6 +501,7 @@ async def scan(
     meta = get_performer_meta(creator_name)
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator_name).lower()
     
+    # Official Social Profiles (Completely Free & Clickable)
     insta_url = f"https://www.instagram.com/explore/tags/{clean_tag}/"
     twitter_url = f"https://x.com/search?q={urllib.parse.quote(creator_name)}"
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
@@ -498,75 +522,75 @@ async def scan(
         <div class="name">{creator_name}</div>
         <div class="aliases-sub">Aliases: {meta['aliases']}</div>
 
-        <!-- NEW: Action card directly under model photo without scary lock -->
-        <div class="access-action-card" id="actionGate">
-            <div class="access-action-title">Complete Scene & Biometric Matches Ready</div>
-            <div class="access-action-sub">Choose how you want to unlock full archives:</div>
-            <div class="action-btn-group">
-                <button type="button" class="btn-ad-choice" onclick="triggerAdFlow()">Watch Ad to View (Free)</button>
-                <button type="button" class="btn-pay-choice" onclick="triggerPayFlow()">Pay ₹9 to View Directly</button>
+        <!-- 1. Free Metrics -->
+        <div class="metric-strip">
+            <div class="metric-pill">
+                <div class="metric-lbl">Vector Index</div>
+                <div class="metric-val">512-D Exact</div>
+            </div>
+            <div class="metric-pill">
+                <div class="metric-lbl">Biometrics</div>
+                <div class="metric-val" style="color:#4ade80;">98.4% Match</div>
+            </div>
+            <div class="metric-pill">
+                <div class="metric-lbl">Frame pHash</div>
+                <div class="metric-val" style="font-size:10px; font-family:monospace;">{phash_val}</div>
             </div>
         </div>
 
-        <!-- Unlocked container starts here -->
-        <div class="unlocked-section" id="fullVaultContent">
-            <div class="metric-strip">
-                <div class="metric-pill">
-                    <div class="metric-lbl">Vector Index</div>
-                    <div class="metric-val">512-D Exact</div>
-                </div>
-                <div class="metric-pill">
-                    <div class="metric-lbl">Biometrics</div>
-                    <div class="metric-val" style="color:#4ade80;">98.4% Match</div>
-                </div>
-                <div class="metric-pill">
-                    <div class="metric-lbl">Frame pHash</div>
-                    <div class="metric-val" style="font-size:10px; font-family:monospace;">{phash_val}</div>
-                </div>
-            </div>
+        <!-- 2. Free Biometrics -->
+        <div class="info-card">
+            <div class="card-head">Biometrical Attributes</div>
+            <table class="data-table">
+                <tr><td class="data-lbl">Ethnicity</td><td class="data-val">{meta['ethnicity']}</td></tr>
+                <tr><td class="data-lbl">Hair & Eyes</td><td class="data-val">{meta['hair']} / {meta['eye']}</td></tr>
+                <tr><td class="data-lbl">Height</td><td class="data-val">{meta['height']}</td></tr>
+                <tr><td class="data-lbl">Career Active</td><td class="data-val">{meta['active_years']}</td></tr>
+            </table>
+        </div>
 
-            <div class="info-card">
-                <div class="card-head">Biometrical Attributes</div>
-                <table class="data-table">
-                    <tr><td class="data-lbl">Ethnicity</td><td class="data-val">{meta['ethnicity']}</td></tr>
-                    <tr><td class="data-lbl">Hair & Eyes</td><td class="data-val">{meta['hair']} / {meta['eye']}</td></tr>
-                    <tr><td class="data-lbl">Height</td><td class="data-val">{meta['height']}</td></tr>
-                    <tr><td class="data-lbl">Career Active</td><td class="data-val">{meta['active_years']}</td></tr>
-                </table>
-            </div>
+        <!-- 3. Free Scene & Studio Credits -->
+        <div class="info-card">
+            <div class="card-head">Scene & Studio Credits</div>
+            <table class="data-table">
+                <tr><td class="data-lbl">Scene Title</td><td class="data-val">{meta['films']}</td></tr>
+                <tr><td class="data-lbl">Production Studio</td><td class="data-val">{meta['studios']}</td></tr>
+                <tr><td class="data-lbl">Scene Timestamp</td><td class="data-val" style="color:#eab308;">14:22 - 21:18 (Identified)</td></tr>
+                <tr><td class="data-lbl">Indexed Host</td><td class="data-val">{primary_src}</td></tr>
+            </table>
+        </div>
 
-            <div class="info-card">
-                <div class="card-head">Scene & Studio Credits</div>
-                <table class="data-table">
-                    <tr><td class="data-lbl">Scene Title</td><td class="data-val">{meta['films']}</td></tr>
-                    <tr><td class="data-lbl">Production Studio</td><td class="data-val">{meta['studios']}</td></tr>
-                    <tr><td class="data-lbl">Scene Timestamp</td><td class="data-val" style="color:#eab308;">14:22 - 21:18 (Identified)</td></tr>
-                    <tr><td class="data-lbl">Indexed Host</td><td class="data-val">{primary_src}</td></tr>
-                </table>
-            </div>
+        <!-- 4. Free Verified Profiles -->
+        <div class="card-head" style="text-align:left;">Verified Profiles & Channels</div>
+        <div class="links-wrap">
+            <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
+            <a class="btn-social" href="{twitter_url}" target="_blank">Twitter / X</a>
+            <a class="btn-social" href="{onlyfans_url}" target="_blank">OnlyFans</a>
+            <a class="btn-social" href="{reddit_url}" target="_blank">Reddit Vault</a>
+        </div>
 
-            <div class="card-head" style="text-align:left;">Verified Profiles & Channels</div>
-            <div class="links-wrap">
-                <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
-                <a class="btn-social" href="{twitter_url}" target="_blank">Twitter / X</a>
-                <a class="btn-social" href="{onlyfans_url}" target="_blank">OnlyFans</a>
-                <a class="btn-social" href="{reddit_url}" target="_blank">Reddit Vault</a>
-            </div>
+        <!-- 5. Gated Video Links Container -->
+        <div class="card-head" style="text-align:left;">Direct Web Source Archive</div>
+        
+        <div class="archive-gate-card" id="gateCard">
+            <div class="archive-gate-title">Matching Videos & Source Clips Found</div>
+            <div class="archive-gate-sub">Unlock all direct web mirrors and stream links:</div>
+            <button type="button" class="btn-watch-gate" onclick="openChoiceModal()">Watch Free / Direct Unlock</button>
+        </div>
 
-            <div class="card-head" style="text-align:left;">Direct Web Source Archive</div>
-            <div style="margin-bottom:14px;">
-                {matched_html if matched_html else '<p style="font-size:12px;color:#64748b;">No archives indexed.</p>'}
-            </div>
+        <div class="links-unlocked" id="linksVault">
+            {matched_html if matched_html else '<p style="font-size:12px;color:#64748b;">No archives indexed.</p>'}
+        </div>
 
-            <div class="info-card" style="margin-top:14px;">
-                <div class="card-head">Community Tagging</div>
-                <span style="font-size:11px; color:#94a3b8;">Help verify aliases, scene title or attributes:</span>
-                <div class="tag-input-box">
-                    <input type="text" id="tagInput" placeholder="Add tag (e.g. 2022 Shoot, Alias)">
-                    <button type="button" onclick="submitCommunityTag('{creator_name}')">Submit</button>
-                </div>
-                <div id="tagStatus" style="margin-top:4px;"></div>
+        <!-- 6. Community Tagging -->
+        <div class="info-card" style="margin-top:14px;">
+            <div class="card-head">Community Tagging</div>
+            <span style="font-size:11px; color:#94a3b8;">Help verify aliases, scene title or attributes:</span>
+            <div class="tag-input-box">
+                <input type="text" id="tagInput" placeholder="Add tag (e.g. 2022 Shoot, Alias)">
+                <button type="button" onclick="submitCommunityTag('{creator_name}')">Submit</button>
             </div>
+            <div id="tagStatus" style="margin-top:4px;"></div>
         </div>
     </div>
     """
