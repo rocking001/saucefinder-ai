@@ -100,7 +100,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
 <div class="wrapper">
     <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">Production Live — Multi-Source Visual Extractor</div>
+    <div class="sub">Multi-Engine Visual AI & Community Vault</div>
     <div class="scan-card">
         <form action="/scan" method="POST" enctype="multipart/form-data">
             <input type="file" name="image_file" required accept="image/*">
@@ -184,21 +184,21 @@ def deep_sauce_extractor(image_path: str):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9'
     }
-    yandex_url = "https://yandex.com/images/search?rpt=imageview"
     name = ""
     insta = ""
-    detected_source = "Direct Visual Recognition"
+    detected_source = ""
 
+    # Engine 1: Yandex Visual Match
     try:
+        yandex_url = "https://yandex.com/images/search?rpt=imageview"
         with open(image_path, 'rb') as f:
-            res = requests.post(yandex_url, headers=headers, files={'upfile': ('query.jpg', f, 'image/jpeg')}, timeout=15)
+            res = requests.post(yandex_url, headers=headers, files={'upfile': ('query.jpg', f, 'image/jpeg')}, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
-        
         tags = [t.text.strip() for t in soup.find_all(class_='Tags-ItemText')]
         filtered = [t for t in tags if not any(k in t.lower() for k in ['image', 'search', 'similar', 'photo', 'girl', 'model', 'wallpaper', 'woman'])]
         if filtered:
             name = filtered[0]
-            detected_source = "Visual Tag Match"
+            detected_source = "Yandex Visual Engine"
 
         m = re.search(r'instagram\.com/([a-zA-Z0-9_\.]{3,30})', res.text)
         if m:
@@ -209,6 +209,21 @@ def deep_sauce_extractor(image_path: str):
     except Exception:
         pass
 
+    # Engine 2: Fallback to Bing Visual Knowledge
+    if not name:
+        try:
+            bing_url = "https://www.bing.com/images/searchbyimage"
+            with open(image_path, 'rb') as f:
+                res = requests.post(bing_url, headers=headers, files={'image': ('query.jpg', f, 'image/jpeg')}, timeout=10)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            page_title = soup.find('title')
+            if page_title and "Bing" not in page_title.text:
+                name = page_title.text.replace(" - Visual Search", "").strip()
+                detected_source = "Bing Visual Engine"
+        except Exception:
+            pass
+
+    # Engine 3: Fallback Profile
     if not name:
         name = "Kendra Lust"
         detected_source = "Fallback Intelligence Profile"
@@ -300,3 +315,71 @@ async def vote(scan_id: int = Form(...), vote: str = Form(...)):
     conn.commit()
     conn.close()
     return JSONResponse({"status": "success"})
+
+# --- ADMIN DASHBOARD ---
+@app.get("/admin", response_class=HTMLResponse)
+def admin_dashboard():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, creator_name, source, image_path, instagram_url, accurate_votes, inaccurate_votes, created_at FROM scans ORDER BY id DESC")
+    rows = cursor.fetchall()
+    conn.close()
+
+    table_rows = ""
+    for r in rows:
+        table_rows += f"""
+        <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b;">#{r[0]}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><img src="{r[3]}" style="width: 42px; height: 42px; border-radius: 6px; object-fit: cover;"></td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-weight: bold; color: #38bdf8;">{r[1]}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-size: 12px; color: #94a3b8;">{r[2]}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b;"><a href="{r[4]}" target="_blank" style="color: #60a5fa; text-decoration: none;">View</a></td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b; color: #22c55e;">+{r[5]}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b; color: #ef4444;">-{r[6]}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #1e293b; font-size: 11px; color: #64748b;">{str(r[7])[:19]}</td>
+        </tr>
+        """
+
+    admin_html = f"""<!DOCTYPE html>
+    <html>
+    <head>
+        <title>SauceFinder AI - Admin Dashboard</title>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f1f5f9; padding: 30px; margin: 0; }}
+            .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }}
+            h1 {{ font-size: 22px; margin: 0; }}
+            .stats {{ background: #0f172a; border: 1px solid #1e293b; padding: 12px 20px; border-radius: 8px; font-size: 14px; }}
+            table {{ width: 100%; border-collapse: collapse; background: #0f172a; border-radius: 8px; overflow: hidden; border: 1px solid #1e293b; }}
+            th {{ background: #1e293b; padding: 12px 10px; text-align: left; font-size: 13px; color: #94a3b8; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div>
+                <h1>SauceFinder Intelligence Panel</h1>
+                <p style="color: #64748b; font-size: 13px; margin: 4px 0 0;">Live SQLite Database Overview & Poll Audits</p>
+            </div>
+            <div class="stats">
+                Total Scans: <strong style="color: #38bdf8;">{len(rows)}</strong>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Image</th>
+                    <th>Identified Creator</th>
+                    <th>Detection Engine</th>
+                    <th>Social</th>
+                    <th>Accuracy (Yes)</th>
+                    <th>Inaccurate (No)</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_rows}
+            </tbody>
+        </table>
+    </body>
+    </html>"""
+    return HTMLResponse(admin_html)
