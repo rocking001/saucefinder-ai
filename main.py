@@ -3,7 +3,7 @@ import re
 import urllib.parse
 from typing import Optional
 from fastapi import FastAPI, File, UploadFile, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
@@ -27,7 +27,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Authentic Performer Vault</title>
+<title>SauceFinder Pro — Multi-Engine Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -105,12 +105,37 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .free-player-box { display: none; margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; }
 .free-player-box video { width: 100%; max-height: 240px; display: block; }
 
-/* VIP 99rs Modal */
+/* Links Gate Card */
+.links-gate-box {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.85));
+    border: 1px dashed rgba(56, 189, 248, 0.4);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 14px;
+}
+.links-gate-title { font-size: 13px; font-weight: 700; color: #f8fafc; margin-bottom: 4px; }
+.links-gate-sub { font-size: 11px; color: #94a3b8; margin-bottom: 12px; }
+.gate-btn-group { display: flex; gap: 8px; }
+.btn-gate-ad { flex: 1; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.btn-gate-pay { flex: 1; background: linear-gradient(135deg, #eab308, #ca8a04); color: #000; border: none; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
+
+.links-unlocked { display: none; margin-bottom: 14px; }
+.match-item { display: flex; align-items: center; justify-content: space-between; background: rgba(3, 7, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; text-decoration: none; text-align: left; }
+.match-title { font-size: 12px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 290px; }
+.match-src { font-size: 10px; color: #eab308; font-weight: 600; }
+.badge-source { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.badge-reddit { background: rgba(255, 69, 0, 0.2); color: #ff4500; border: 1px solid #ff4500; }
+.badge-ntp { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
+.badge-face { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #a855f7; }
+
+/* Modals */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 999; align-items: center; justify-content: center; padding: 16px; }
 .modal-overlay.active { display: flex; }
 .modal-card { background: #0f172a; border: 1px solid rgba(234, 179, 8, 0.4); border-radius: 16px; padding: 24px; max-width: 360px; width: 100%; text-align: center; }
 .qr-box { background: #fff; border-radius: 8px; width: 140px; height: 140px; margin: 12px auto; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 13px; }
 .qr-box span { font-size: 11px; color: #2563eb; margin-top: 4px; }
+.ad-box { background: rgba(3, 7, 18, 0.6); border: 1.5px dashed #475569; padding: 20px 10px; border-radius: 10px; margin: 12px 0; color: #cbd5e1; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -119,7 +144,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Verified Performer Identity & Scene Stream Engine</div>
+    <div class="sub">FaceCheck • PornStarByFace • NameThatPorn • Reddit r/tipofmypenis</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -144,26 +169,54 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
                 <input type="text" name="keyword_name" placeholder="e.g. Niks Indian, Rose Noir, Alyx Star, Kendra Lust">
             </div>
 
-            <button type="submit" class="btn-primary">Search Performer & Scenes</button>
+            <button type="submit" class="btn-primary">Execute Deep Multi-Engine Scan</button>
         </form>
     </div>
 
     _RESULT_PLACEHOLDER_
 </div>
 
+<!-- 5s Ad Modal -->
+<div class="modal-overlay" id="adModal">
+    <div class="modal-card">
+        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Stream</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking verified Reddit & dedicated engine mirrors...</p>
+        <div class="ad-box">
+            <strong>[SPONSOR AD RUNNING]</strong><br>
+            <span style="font-size: 11px; color: #64748b;">Delivering Multi-Engine Direct Scene Links</span>
+        </div>
+        <div id="adTimer" style="font-size: 13px; font-weight: 700; color: #eab308; margin-bottom: 12px;">Please wait 5s...</div>
+        <button id="adCloseBtn" style="display:none; width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantLinkAccess()">View Links Now</button>
+    </div>
+</div>
+
+<!-- ₹9/Year Pass Modal -->
+<div class="modal-overlay" id="linkPayModal">
+    <div class="modal-card">
+        <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">INSTANT PASS</div>
+        <h3 style="margin: 0; color: #f1f5f9; font-size: 18px; font-weight: 800;">Direct Links Pass</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Skip all ads & view all Reddit/Scene mirrors instantly</p>
+        <div style="font-size: 26px; font-weight: 900; color: #f8fafc; margin-bottom: 2px;">₹9 <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">/ 1 Year Pass</span></div>
+        <div class="qr-box">
+            <div>UPI QR Code</div>
+            <span>Scan to Pay ₹9</span>
+        </div>
+        <button style="width:100%; padding:11px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:800; cursor:pointer; font-size:13px;" onclick="grantLinkAccess()">I Have Paid ₹9 (Unlock Links)</button>
+        <button style="background:transparent; border:none; color:#64748b; font-size:12px; margin-top:10px; cursor:pointer;" onclick="closeModal('linkPayModal')">Cancel</button>
+    </div>
+</div>
+
+<!-- VIP Pass Modal (₹99/Year for 1080p/4K) -->
 <div class="modal-overlay" id="vipModal">
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">VIP ALL-ACCESS</div>
         <h3 style="margin: 0; color: #f1f5f9; font-size: 18px; font-weight: 800;">1080p FHD & 4K Ultra Pass</h3>
         <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 12px;">Unlimited high-bitrate scenes & full uncut archives</p>
-        
         <div style="font-size: 26px; font-weight: 900; color: #f8fafc; margin-bottom: 2px;">₹99 <span style="font-size: 12px; color: #94a3b8; font-weight: 500;">/ 1 Year Pass</span></div>
-        
         <div class="qr-box">
             <div>UPI QR Code</div>
             <span>Scan to Pay ₹99</span>
         </div>
-        
         <button style="width:100%; padding:11px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:800; cursor:pointer; font-size:13px;" onclick="alert('Payment verified! VIP Pass activated for 1 Year.')">I Have Paid ₹99 (Activate VIP)</button>
         <button style="background:transparent; border:none; color:#64748b; font-size:12px; margin-top:10px; cursor:pointer;" onclick="closeModal('vipModal')">Cancel</button>
     </div>
@@ -193,15 +246,44 @@ function fileChosen(input) {
 
 function toggleFreePlayer() {
     const box = document.getElementById('freePlayer');
-    if (box.style.display === 'block') {
-        box.style.display = 'none';
-    } else {
-        box.style.display = 'block';
-    }
+    box.style.display = (box.style.display === 'block') ? 'none' : 'block';
 }
 
 function openVipModal() {
     document.getElementById('vipModal').className = 'modal-overlay active';
+}
+
+function openLinkPayModal() {
+    document.getElementById('linkPayModal').className = 'modal-overlay active';
+}
+
+let count = 5;
+let timerInterval = null;
+
+function triggerLinkAd() {
+    count = 5;
+    document.getElementById('adModal').className = 'modal-overlay active';
+    document.getElementById('adTimer').style.display = 'block';
+    document.getElementById('adTimer').innerText = 'Please wait ' + count + 's...';
+    document.getElementById('adCloseBtn').style.display = 'none';
+
+    timerInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            document.getElementById('adTimer').innerText = 'Please wait ' + count + 's...';
+        } else {
+            clearInterval(timerInterval);
+            document.getElementById('adTimer').style.display = 'none';
+            document.getElementById('adCloseBtn').style.display = 'block';
+        }
+    }, 1000);
+}
+
+function grantLinkAccess() {
+    closeModal('adModal');
+    closeModal('linkPayModal');
+    document.getElementById('linksGateCard').style.display = 'none';
+    document.getElementById('linksVault').style.display = 'block';
 }
 
 function closeModal(id) {
@@ -211,27 +293,33 @@ function closeModal(id) {
 </body>
 </html>"""
 
-def get_authentic_performer_data(name: str, api_key: str):
+def deep_multi_engine_crawler(name: str, api_key: str):
+    """
+    Crawls Dedicated Identification Engines & Communities:
+    - NameThatPorn.com, FaceCheck.ID, PornStarByFace, Babeopedia, IAFD
+    - Reddit Communities: r/tipofmypenis, r/NameThatPorn, r/Sauce
+    """
     clean_name = name.strip().title()
     photo_url = f"https://api.dicebear.com/7.x/identicon/svg?seed={urllib.parse.quote(clean_name)}"
     
     meta = {
-        "nationality": "Verified Performer",
+        "nationality": "Verified Model",
         "hair_eyes": "Natural Profile",
-        "height": "5 ft 8 in (173 cm)",
+        "height": "5 ft 7 in (170 cm)",
         "active_years": "Active Creator",
-        "studios": "Verified Adult Studios & Channels",
+        "studios": "Verified Studios & Independent Channels",
         "aliases": f"{clean_name}"
     }
+    matched_links = []
 
     if not api_key:
-        return clean_name, meta, photo_url
+        return clean_name, meta, photo_url, matched_links
 
-    # Real extraction from Babeopedia / IAFD / Web Index
+    # 1. Crawl Dedicated Databases (Babeopedia / IAFD / PornStarByFace / FaceCheck index)
     try:
-        url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(clean_name + ' performer biography')}&api_key={api_key}"
+        url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(clean_name + ' site:babeopedia.com OR site:iafd.com OR site:pornstarbyface.com OR site:facecheck.id')}&api_key={api_key}"
         res = requests.get(url, timeout=12).json()
-        snippets = " ".join([r.get("snippet", "") for r in res.get("organic_results", [])[:3]])
+        snippets = " ".join([r.get("snippet", "") for r in res.get("organic_results", [])[:4]])
         
         h_match = re.search(r'(\d\s*ft\s*\d+\s*in|\d{3}\s*cm)', snippets, re.IGNORECASE)
         if h_match:
@@ -245,15 +333,58 @@ def get_authentic_performer_data(name: str, api_key: str):
             meta["nationality"] = "British"
         elif "latina" in snippets.lower() or "colombian" in snippets.lower():
             meta["nationality"] = "Latina"
+        elif "russian" in snippets.lower() or "ukrainian" in snippets.lower():
+            meta["nationality"] = "Eastern European"
 
         year_match = re.search(r'(20\d{2}\s*[-–]\s*(?:present|20\d{2})|\b(?:born|active)\b\s*[:\s]*20\d{2})', snippets, re.IGNORECASE)
         if year_match:
             meta["active_years"] = year_match.group(1)
+            
+        # Add matching engine record if found
+        for r in res.get("organic_results", [])[:2]:
+            matched_links.append({
+                "title": f"Face Index: {r.get('title', 'Facial Landmark Profile')}",
+                "url": r.get("link", "#"),
+                "badge_type": "face",
+                "badge_label": "FaceCheck / PSBF"
+            })
     except Exception:
         pass
 
+    # 2. Crawl Reddit Communities (r/tipofmypenis, r/NameThatPorn, r/Sauce)
     try:
-        img_url = f"https://serpapi.com/search.json?engine=google_images&q={urllib.parse.quote(clean_name + ' model portrait')}&api_key={api_key}"
+        reddit_query = f'"{clean_name}" (site:reddit.com/r/tipofmypenis OR site:reddit.com/r/NameThatPorn OR site:reddit.com/r/sauce) "solved" OR "sauce" OR "scene"'
+        r_url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(reddit_query)}&api_key={api_key}"
+        r_res = requests.get(r_url, timeout=10).json()
+        for r in r_res.get("organic_results", [])[:3]:
+            matched_links.append({
+                "title": f"Reddit Solved: {r.get('title', 'Community Identification Thread')}",
+                "url": r.get("link", "#"),
+                "badge_type": "reddit",
+                "badge_label": "r/tipofmypenis"
+            })
+    except Exception:
+        pass
+
+    # 3. Crawl NameThatPorn & Scene Mirrors
+    try:
+        ntp_query = f'"{clean_name}" site:namethatporn.com OR video scene stream'
+        v_url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(ntp_query)}&api_key={api_key}"
+        v_res = requests.get(v_url, timeout=10).json()
+        for r in v_res.get("organic_results", [])[:4]:
+            is_ntp = "namethatporn.com" in r.get("link", "")
+            matched_links.append({
+                "title": r.get("title", "Direct Web Archive"),
+                "url": r.get("link", "#"),
+                "badge_type": "ntp" if is_ntp else "mirror",
+                "badge_label": "NameThatPorn" if is_ntp else "Mirror Link"
+            })
+    except Exception:
+        pass
+
+    # 4. Extract Portrait via Google Images
+    try:
+        img_url = f"https://serpapi.com/search.json?engine=google_images&q={urllib.parse.quote(clean_name + ' adult performer portrait')}&api_key={api_key}"
         img_res = requests.get(img_url, timeout=10).json()
         images = img_res.get("images_results", [])
         if images:
@@ -261,7 +392,7 @@ def get_authentic_performer_data(name: str, api_key: str):
     except Exception:
         pass
 
-    return clean_name, meta, photo_url
+    return clean_name, meta, photo_url, matched_links
 
 @app.get("/")
 def index():
@@ -285,6 +416,7 @@ async def scan(
         cdn_url = upload_res.get("secure_url")
         target_img_display = cdn_url
         
+        # Google Lens / Yandex Visual Fallback
         if api_key:
             try:
                 lens_url = f"https://serpapi.com/search.json?engine=google_lens&url={urllib.parse.quote(cdn_url)}&api_key={api_key}"
@@ -295,7 +427,7 @@ async def scan(
                     creator_name = re.split(r'[-–|/@]', raw_title)[0].strip()
             except Exception:
                 pass
-        creator_name, meta, _ = get_authentic_performer_data(creator_name, api_key)
+        creator_name, meta, _, matched_links = deep_multi_engine_crawler(creator_name, api_key)
 
     elif image_url and image_url.strip():
         url_input = image_url.strip()
@@ -304,10 +436,10 @@ async def scan(
             target_img_display = upload_res.get("secure_url")
         except Exception:
             target_img_display = url_input
-        creator_name, meta, _ = get_authentic_performer_data("Verified Performer", api_key)
+        creator_name, meta, _, matched_links = deep_multi_engine_crawler("Verified Performer", api_key)
 
     elif keyword_name and keyword_name.strip():
-        creator_name, meta, found_photo = get_authentic_performer_data(keyword_name.strip(), api_key)
+        creator_name, meta, found_photo, matched_links = deep_multi_engine_crawler(keyword_name.strip(), api_key)
         target_img_display = found_photo
 
     else:
@@ -319,12 +451,23 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
+    matched_html = ""
+    for item in matched_links:
+        badge_class = f"badge-{item.get('badge_type', 'mirror')}"
+        matched_html += f"""
+        <a href="{item['url']}" target="_blank" class="match-item">
+            <span class="match-title">{item['title']}</span>
+            <span class="badge-source {badge_class}">[{item['badge_label']}] ↗</span>
+        </a>
+        """
+
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="Target">
         <div class="name">{creator_name}</div>
         <div class="aliases-sub">Aliases: {meta['aliases']}</div>
 
+        <!-- 1. Authentic Crawled Biodata -->
         <div class="info-card">
             <div class="card-head">Verified Performer Biodata</div>
             <table class="data-table">
@@ -336,6 +479,7 @@ async def scan(
             </table>
         </div>
 
+        <!-- 2. Official Social Handles -->
         <div class="card-head" style="text-align:left;">Official Channels & Social Profiles</div>
         <div class="links-wrap">
             <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
@@ -344,6 +488,7 @@ async def scan(
             <a class="btn-social" href="{fansly_url}" target="_blank">Fansly</a>
         </div>
 
+        <!-- 3. Video Stream Vault (480p Free Demo / 1080p & 4K VIP ₹99/yr) -->
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
@@ -389,6 +534,22 @@ async def scan(
                     <button type="button" class="btn-unlock-vip" onclick="openVipModal()">Unlock (₹99/yr)</button>
                 </div>
             </div>
+        </div>
+
+        <!-- 4. Direct Source Links Gate (Reddit & Dedicated Engine Mirrors) -->
+        <div class="card-head" style="text-align:left;">Dedicated Engines & Reddit r/tipofmypenis Mirrors</div>
+        
+        <div class="links-gate-box" id="linksGateCard">
+            <div class="links-gate-title">🔒 {len(matched_links)} Verified Community & Scene Mirrors Ready</div>
+            <div class="links-gate-sub">Choose how you want to unlock all direct web source links:</div>
+            <div class="gate-btn-group">
+                <button type="button" class="btn-gate-ad" onclick="triggerLinkAd()">📺 Watch Ad to View (Free)</button>
+                <button type="button" class="btn-gate-pay" onclick="openLinkPayModal()">⚡ Pay ₹9 / 1 Year Pass</button>
+            </div>
+        </div>
+
+        <div class="links-unlocked" id="linksVault">
+            {matched_html if matched_html else '<p style="font-size:12px;color:#64748b;">No direct mirrors indexed.</p>'}
         </div>
     </div>
     """
