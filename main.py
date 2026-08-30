@@ -15,7 +15,6 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# --- DATABASE SETUP (SQLite) ---
 DB_FILE = "saucefinder.db"
 
 def init_db():
@@ -57,7 +56,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SauceFinder AI - Database Synced Engine</title>
+    <title>SauceFinder AI - Live Production Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f1f5f9; margin: 0; padding: 40px 15px; display: flex; flex-direction: column; align-items: center; }
         .wrapper { max-width: 520px; width: 100%; text-align: center; }
@@ -100,11 +99,11 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
 <div class="wrapper">
     <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">Database Logging Active (Scans & Poll Tracking)</div>
+    <div class="sub">Production Backend — Fast Biometric & Community Match</div>
     <div class="scan-card">
         <form action="/scan" method="POST" enctype="multipart/form-data">
             <input type="file" name="image_file" required accept="image/*">
-            <button type="submit" class="btn-primary">Deep Sauce Scan</button>
+            <button type="submit" class="btn-primary">Instant Sauce Scan</button>
         </form>
     </div>
     __RESULT_PLACEHOLDER__
@@ -152,7 +151,7 @@ function submitVote(scanId, voteType) {
 </html>"""
 
 def search_reddit_sauce(query: str):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     clean_query = urllib.parse.quote(query)
     reddit_url = f"https://www.reddit.com/search.json?q={clean_query}&limit=3"
     reddit_match = None
@@ -228,6 +227,7 @@ def deep_sauce_extractor(image_path: str):
     }
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/scan", response_class=HTMLResponse)
 def index():
     return HTML_LAYOUT.replace("__RESULT_PLACEHOLDER__", "")
 
@@ -240,7 +240,6 @@ async def scan(image_file: UploadFile = File(...)):
     data = deep_sauce_extractor(save_path)
     img_url = f"/uploads/{image_file.filename}"
 
-    # Log scan into SQLite
     scan_id = log_scan(
         data['name'],
         data['source'],
