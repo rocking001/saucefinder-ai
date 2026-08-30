@@ -5,7 +5,7 @@ import urllib.parse
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -56,7 +56,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SauceFinder AI - Live Production Engine</title>
+    <title>SauceFinder AI Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f1f5f9; margin: 0; padding: 40px 15px; display: flex; flex-direction: column; align-items: center; }
         .wrapper { max-width: 520px; width: 100%; text-align: center; }
@@ -73,6 +73,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
         .source-tag { font-size: 12px; color: #94a3b8; margin-bottom: 14px; display: block; }
         .links-wrap { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
         .btn-social { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .btn-social:hover { border-color: #38bdf8; }
         .btn-reddit { color: #ff4500; border-color: rgba(255, 69, 0, 0.4); }
         
         .reddit-summary { background: #080d1a; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; text-align: left; font-size: 12px; color: #cbd5e1; }
@@ -99,11 +100,11 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
 <div class="wrapper">
     <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">Production Backend — Fast Biometric & Community Match</div>
+    <div class="sub">Production Live — Multi-Source Visual Extractor</div>
     <div class="scan-card">
         <form action="/scan" method="POST" enctype="multipart/form-data">
             <input type="file" name="image_file" required accept="image/*">
-            <button type="submit" class="btn-primary">Instant Sauce Scan</button>
+            <button type="submit" class="btn-primary">Deep Sauce Scan</button>
         </form>
     </div>
     __RESULT_PLACEHOLDER__
