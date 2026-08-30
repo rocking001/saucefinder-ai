@@ -1,6 +1,6 @@
-fastapi
+﻿fastapi
 uvicorn
-requests
-beautifulsoup4
 python-multipart
 cloudinary
+requests
+beautifulsoup4
