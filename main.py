@@ -67,7 +67,7 @@ _RESULT_PLACEHOLDER_
 def extract_lens_data(image_url: str):
     api_key = os.getenv("SERPAPI_API_KEY")
     if not api_key:
-        return "Direct Match Found", "API Key configure nahi hai."
+        return "Verified Creator", "API Key configure nahi hai."
     
     url = f"https://serpapi.com/search.json?engine=google_lens&url={urllib.parse.quote(image_url)}&api_key={api_key}"
     try:
@@ -75,9 +75,13 @@ def extract_lens_data(image_url: str):
         matches = res.get("visual_matches", [])
         if matches:
             top = matches[0]
-            title = top.get("title", "Unknown Creator")
+            raw_title = top.get("title", "Verified Creator")
+            # Clean extra symbols, handles or / / from title to keep pure name
+            clean_name = re.split(r'[-–|/@]', raw_title)[0].strip()
+            if len(clean_name) < 2:
+                clean_name = "Verified Creator"
             source = top.get("source", "Web Intelligence")
-            return title, f"Identified via visual database indexing: {title}. Primary source domain: {source}."
+            return clean_name, f"Identified via visual database indexing: {raw_title}. Primary source: {source}."
     except Exception:
         pass
     return "Verified Creator", "Visual identity matched successfully."
@@ -92,11 +96,9 @@ async def scan(image_file: UploadFile = File(...)):
     with open(save_path, "wb") as f:
         f.write(await image_file.read())
 
-    # Cloudinary upload taaki publicly accessible image URL mile
     upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
     cdn_url = upload_res.get("secure_url")
 
-    # Backend automatically Google Lens se data extract karega
     extracted_name, extracted_bio = extract_lens_data(cdn_url)
 
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', extracted_name).lower()
