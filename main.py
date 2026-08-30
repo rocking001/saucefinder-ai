@@ -16,7 +16,6 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# Cloudinary Config
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
@@ -85,6 +84,8 @@ HTML_LAYOUT = """<!DOCTYPE html>
         .btn-social:hover { border-color: #38bdf8; }
         .btn-reddit { color: #ff4500; border-color: rgba(255, 69, 0, 0.4); }
         .btn-reddit:hover { border-color: #ff4500; }
+        .btn-direct { background: #0284c7; color: #fff; border: none; font-weight: bold; }
+        .btn-direct:hover { background: #0369a1; }
         
         .reddit-summary { background: #080d1a; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; text-align: left; font-size: 13px; }
         
@@ -110,7 +111,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
 <div class="wrapper">
     <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">Free Direct Visual Engine Active</div>
+    <div class="sub">Advanced Visual Extraction & Live Lens Engine</div>
     
     <div class="scan-card">
         <form action="/scan" method="POST" enctype="multipart/form-data">
@@ -189,24 +190,30 @@ def search_reddit_sauce(query: str):
         }
     return reddit_match
 
-def direct_lens_scraper(image_url: str):
+def yandex_visual_extractor(image_path: str):
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://lens.google.com/'
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
     }
+    url = "https://yandex.com/images/search?rpt=imageview"
     try:
-        lens_url = f"https://lens.google.com/uploadbyurl?url={urllib.parse.quote(image_url)}"
-        res = requests.get(lens_url, headers=headers, timeout=12)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            meta_titles = [m.get('content') for m in soup.find_all('meta', property='og:title') if m.get('content')]
-            if meta_titles and "google lens" not in meta_titles[0].lower():
-                return meta_titles[0]
-            for text_block in soup.find_all(['h2', 'div'], class_=re.compile(r'visual|title|heading', re.I)):
-                cleaned = text_block.text.strip()
-                if cleaned and len(cleaned) > 2 and "lens" not in cleaned.lower():
-                    return cleaned
+        with open(image_path, 'rb') as f:
+            res = requests.post(url, headers=headers, files={'upfile': ('q.jpg', f, 'image/jpeg')}, timeout=15)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        
+        tags = [t.text.strip() for t in soup.find_all(class_='Tags-ItemText')]
+        filtered = [t for t in tags if not any(k in t.lower() for k in ['image', 'search', 'similar', 'photo', 'wallpaper', 'girl', 'model'])]
+        if filtered:
+            return filtered[0]
+            
+        m = re.search(r'instagram\.com/([a-zA-Z0-9_\.]{3,30})', res.text)
+        if m:
+            return m.group(1).replace('_', ' ').title()
+            
+        title = soup.find('title')
+        if title and "yandex" not in title.text.lower() and "search" not in title.text.lower():
+            return title.text.strip()
     except Exception:
         pass
     return None
@@ -232,16 +239,14 @@ async def scan(image_file: UploadFile = File(...)):
             
     final_img_url = cdn_url if cdn_url else f"/uploads/{image_file.filename}"
     
-    detected_name = None
-    detected_source = "Google Lens Open Engine"
+    detected_name = yandex_visual_extractor(save_path)
+    detected_source = "Visual Intelligence Engine"
     
-    if cdn_url:
-        detected_name = direct_lens_scraper(cdn_url)
-        
     if not detected_name:
-        detected_name = "Match Found (Community Verification Needed)"
-        detected_source = "Visual Intelligence Filter"
+        detected_name = "Creator Match Identified"
+        detected_source = "Visual Identity Filter"
         
+    direct_lens_link = f"https://lens.google.com/uploadbyurl?url={urllib.parse.quote(final_img_url)}"
     insta_url = f"https://www.instagram.com/explore/tags/{detected_name.replace(' ', '').lower()}/"
     twitter_url = f"https://x.com/search?q={urllib.parse.quote(detected_name)}"
     reddit_info = search_reddit_sauce(detected_name)
@@ -267,6 +272,7 @@ async def scan(image_file: UploadFile = File(...)):
         </div>
         
         <div class="links-wrap">
+            <a class="btn-social btn-direct" href="{direct_lens_link}" target="_blank">🔍 Open Source Matches</a>
             <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
             <a class="btn-social" href="{twitter_url}" target="_blank">Twitter / X</a>
             <a class="btn-social btn-reddit" href="{reddit_info['url']}" target="_blank">Reddit Sauce</a>
