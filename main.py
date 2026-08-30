@@ -1,10 +1,12 @@
 ﻿import os
 import re
+import sqlite3
 import urllib.parse
+from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
@@ -13,12 +15,49 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+# --- DATABASE SETUP (SQLite) ---
+DB_FILE = "saucefinder.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            creator_name TEXT,
+            source TEXT,
+            image_path TEXT,
+            instagram_url TEXT,
+            twitter_url TEXT,
+            reddit_url TEXT,
+            accurate_votes INTEGER DEFAULT 0,
+            inaccurate_votes INTEGER DEFAULT 0,
+            created_at TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def log_scan(creator_name, source, img_path, insta, twitter, reddit):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO scans (creator_name, source, image_path, instagram_url, twitter_url, reddit_url, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (creator_name, source, img_path, insta, twitter, reddit, datetime.now()))
+    scan_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return scan_id
+
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SauceFinder AI - Video Sauce & Identity</title>
+    <title>SauceFinder AI - Database Synced Engine</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d1a; color: #f1f5f9; margin: 0; padding: 40px 15px; display: flex; flex-direction: column; align-items: center; }
         .wrapper { max-width: 520px; width: 100%; text-align: center; }
@@ -35,21 +74,17 @@ HTML_LAYOUT = """<!DOCTYPE html>
         .source-tag { font-size: 12px; color: #94a3b8; margin-bottom: 14px; display: block; }
         .links-wrap { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
         .btn-social { background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; }
-        .btn-social:hover { border-color: #38bdf8; }
         .btn-reddit { color: #ff4500; border-color: rgba(255, 69, 0, 0.4); }
         
         .reddit-summary { background: #080d1a; border: 1px solid #334155; border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; text-align: left; font-size: 12px; color: #cbd5e1; }
         
-        /* Interactive Video Vault */
         .video-box { margin-top: 20px; background: #000; border: 1px dashed #eab308; border-radius: 10px; overflow: hidden; position: relative; height: 210px; }
         .video-elem { width: 100%; height: 100%; object-fit: cover; transition: filter 0.4s ease; }
         .video-elem.blurred { filter: blur(14px) brightness(0.4); }
         .lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
         .lock-overlay.hidden { display: none; }
-        .lock-btn { background: #eab308; color: #000; border: none; padding: 10px 20px; font-weight: 800; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3); }
-        .lock-btn:hover { background: #facc15; }
+        .lock-btn { background: #eab308; color: #000; border: none; padding: 10px 20px; font-weight: 800; border-radius: 8px; cursor: pointer; font-size: 14px; }
         
-        /* Payment Modal */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; }
         .modal.active { display: flex; }
         .modal-card { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%; text-align: center; }
@@ -65,7 +100,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <body>
 <div class="wrapper">
     <div class="title">SauceFinder AI Engine</div>
-    <div class="sub">Deep Multi-Source Video Extractor & Vault</div>
+    <div class="sub">Database Logging Active (Scans & Poll Tracking)</div>
     <div class="scan-card">
         <form action="/scan" method="POST" enctype="multipart/form-data">
             <input type="file" name="image_file" required accept="image/*">
@@ -101,6 +136,16 @@ function completeUnlock() {
     video.controls = true;
     video.play();
     alert('Payment Successful! Video stream unlocked.');
+}
+
+function submitVote(scanId, voteType) {
+    fetch('/vote', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'scan_id=' + scanId + '&vote=' + voteType
+    }).then(res => res.json()).then(data => {
+        document.getElementById('pollSection').innerHTML = '<span style="color:#22c55e; font-size:13px; font-weight:bold;">Thanks! Vote registered in database.</span>';
+    });
 }
 </script>
 </body>
@@ -195,6 +240,16 @@ async def scan(image_file: UploadFile = File(...)):
     data = deep_sauce_extractor(save_path)
     img_url = f"/uploads/{image_file.filename}"
 
+    # Log scan into SQLite
+    scan_id = log_scan(
+        data['name'],
+        data['source'],
+        img_url,
+        data['instagram'],
+        data['twitter'],
+        data['reddit']['url']
+    )
+
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{img_url}" alt="Target">
@@ -223,13 +278,25 @@ async def scan(image_file: UploadFile = File(...)):
             </div>
         </div>
 
-        <div class="community-card">
+        <div class="community-card" id="pollSection">
             <span style="font-size: 13px; color: #e2e8f0; font-weight:600;">Kya yeh creator identify sahi hai?</span>
             <div class="poll-btns">
-                <button type="button" class="poll-btn" onclick="alert('Accuracy confirmed! Thanks.');">Haan, Sahi Hai</button>
-                <button type="button" class="poll-btn" onclick="alert('Feedback recorded.');">Nahi, Galat Hai</button>
+                <button type="button" class="poll-btn" onclick="submitVote({scan_id}, 'yes')">Haan, Sahi Hai</button>
+                <button type="button" class="poll-btn" onclick="submitVote({scan_id}, 'no')">Nahi, Galat Hai</button>
             </div>
         </div>
     </div>
     """
     return HTML_LAYOUT.replace("__RESULT_PLACEHOLDER__", result_html)
+
+@app.post("/vote")
+async def vote(scan_id: int = Form(...), vote: str = Form(...)):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    if vote == 'yes':
+        cursor.execute("UPDATE scans SET accurate_votes = accurate_votes + 1 WHERE id = ?", (scan_id,))
+    else:
+        cursor.execute("UPDATE scans SET inaccurate_votes = inaccurate_votes + 1 WHERE id = ?", (scan_id,))
+    conn.commit()
+    conn.close()
+    return JSONResponse({"status": "success"})
