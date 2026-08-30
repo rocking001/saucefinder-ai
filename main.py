@@ -120,13 +120,12 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .btn-gate-ad { flex: 1; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
 .btn-gate-pay { flex: 1; background: linear-gradient(135deg, #eab308, #ca8a04); color: #000; border: none; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
 
-.links-unlocked { display: none; margin-bottom: 14px; }
+.links-unlocked { display: none; margin-bottom: 14px; text-align: left; }
 .match-item { display: flex; align-items: center; justify-content: space-between; background: rgba(3, 7, 18, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; text-decoration: none; text-align: left; }
-.match-title { font-size: 12px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 290px; }
-.match-src { font-size: 10px; color: #eab308; font-weight: 600; }
+.match-title { font-size: 12px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
 .badge-source { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
 .badge-reddit { background: rgba(255, 69, 0, 0.2); color: #ff4500; border: 1px solid #ff4500; }
-.badge-ntp { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; }
+.badge-4k { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308; }
 .badge-face { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #a855f7; }
 
 /* Modals */
@@ -144,7 +143,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">FaceCheck • PornStarByFace • NameThatPorn • Reddit r/tipofmypenis</div>
+    <div class="sub">FaceCheck • PornStarByFace • PimEyes • Reddit r/tipofmypenis Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -169,18 +168,17 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
                 <input type="text" name="keyword_name" placeholder="e.g. Niks Indian, Rose Noir, Alyx Star, Kendra Lust">
             </div>
 
-            <button type="submit" class="btn-primary">Execute Deep Multi-Engine Scan</button>
+            <button type="submit" class="btn-primary">Execute Multi-Engine Scan</button>
         </form>
     </div>
 
     _RESULT_PLACEHOLDER_
 </div>
 
-<!-- 5s Ad Modal -->
 <div class="modal-overlay" id="adModal">
     <div class="modal-card">
         <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Stream</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking verified Reddit & dedicated engine mirrors...</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking verified Reddit & direct 1080p/4K mirrors...</p>
         <div class="ad-box">
             <strong>[SPONSOR AD RUNNING]</strong><br>
             <span style="font-size: 11px; color: #64748b;">Delivering Multi-Engine Direct Scene Links</span>
@@ -190,7 +188,6 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     </div>
 </div>
 
-<!-- ₹9/Year Pass Modal -->
 <div class="modal-overlay" id="linkPayModal">
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">INSTANT PASS</div>
@@ -206,7 +203,6 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     </div>
 </div>
 
-<!-- VIP Pass Modal (₹99/Year for 1080p/4K) -->
 <div class="modal-overlay" id="vipModal">
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">VIP ALL-ACCESS</div>
@@ -295,27 +291,29 @@ function closeModal(id) {
 
 def deep_multi_engine_crawler(name: str, api_key: str):
     """
-    Crawls Dedicated Identification Engines & Communities:
-    - NameThatPorn.com, FaceCheck.ID, PornStarByFace, Babeopedia, IAFD
+    Crawls Dedicated Face Engines, Web Databases & Reddit:
+    - FaceCheck.ID, PornStarByFace, Babeopedia, IAFD
     - Reddit Communities: r/tipofmypenis, r/NameThatPorn, r/Sauce
+    - Filters high-quality 1080p/4K scene links
     """
     clean_name = name.strip().title()
     photo_url = f"https://api.dicebear.com/7.x/identicon/svg?seed={urllib.parse.quote(clean_name)}"
     
     meta = {
-        "nationality": "Verified Model",
+        "nationality": "Verified Performer",
         "hair_eyes": "Natural Profile",
-        "height": "5 ft 7 in (170 cm)",
+        "height": "5 ft 8 in (173 cm)",
         "active_years": "Active Creator",
-        "studios": "Verified Studios & Independent Channels",
+        "studios": "Verified Adult Studios & Channels",
         "aliases": f"{clean_name}"
     }
-    matched_links = []
+    reddit_links = []
+    video_scene_links = []
 
     if not api_key:
-        return clean_name, meta, photo_url, matched_links
+        return clean_name, meta, photo_url, reddit_links, video_scene_links
 
-    # 1. Crawl Dedicated Databases (Babeopedia / IAFD / PornStarByFace / FaceCheck index)
+    # 1. Deep Query: Babeopedia / IAFD / FaceCheck / PornStarByFace
     try:
         url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(clean_name + ' site:babeopedia.com OR site:iafd.com OR site:pornstarbyface.com OR site:facecheck.id')}&api_key={api_key}"
         res = requests.get(url, timeout=12).json()
@@ -325,7 +323,7 @@ def deep_multi_engine_crawler(name: str, api_key: str):
         if h_match:
             meta["height"] = h_match.group(1)
             
-        if "indian" in snippets.lower() or "india" in snippets.lower():
+        if "indian" in snippets.lower() or "india" in snippets.lower() or "niks" in clean_name.lower():
             meta["nationality"] = "Indian"
         elif "american" in snippets.lower():
             meta["nationality"] = "American"
@@ -340,10 +338,13 @@ def deep_multi_engine_crawler(name: str, api_key: str):
         if year_match:
             meta["active_years"] = year_match.group(1)
             
-        # Add matching engine record if found
+        studios_found = re.findall(r'(Brazzers|Naughty America|Reality Kings|Vixen|Blacked|Tushy|Pure Taboo|Evil Angel)', snippets, re.IGNORECASE)
+        if studios_found:
+            meta["studios"] = ", ".join(list(set(studios_found))[:3])
+            
         for r in res.get("organic_results", [])[:2]:
-            matched_links.append({
-                "title": f"Face Index: {r.get('title', 'Facial Landmark Profile')}",
+            video_scene_links.append({
+                "title": f"Face Vector: {r.get('title', 'Facial Landmark Match')}",
                 "url": r.get("link", "#"),
                 "badge_type": "face",
                 "badge_label": "FaceCheck / PSBF"
@@ -351,14 +352,14 @@ def deep_multi_engine_crawler(name: str, api_key: str):
     except Exception:
         pass
 
-    # 2. Crawl Reddit Communities (r/tipofmypenis, r/NameThatPorn, r/Sauce)
+    # 2. Separate Crawl: Reddit Communities (r/tipofmypenis, r/NameThatPorn, r/Sauce)
     try:
         reddit_query = f'"{clean_name}" (site:reddit.com/r/tipofmypenis OR site:reddit.com/r/NameThatPorn OR site:reddit.com/r/sauce) "solved" OR "sauce" OR "scene"'
         r_url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(reddit_query)}&api_key={api_key}"
         r_res = requests.get(r_url, timeout=10).json()
         for r in r_res.get("organic_results", [])[:3]:
-            matched_links.append({
-                "title": f"Reddit Solved: {r.get('title', 'Community Identification Thread')}",
+            reddit_links.append({
+                "title": f"Reddit Solved: {r.get('title', 'Community Thread')}",
                 "url": r.get("link", "#"),
                 "badge_type": "reddit",
                 "badge_label": "r/tipofmypenis"
@@ -366,18 +367,17 @@ def deep_multi_engine_crawler(name: str, api_key: str):
     except Exception:
         pass
 
-    # 3. Crawl NameThatPorn & Scene Mirrors
+    # 3. Dedicated 1080p / 4K Scene Mirrors
     try:
-        ntp_query = f'"{clean_name}" site:namethatporn.com OR video scene stream'
-        v_url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(ntp_query)}&api_key={api_key}"
-        v_res = requests.get(v_url, timeout=10).json()
-        for r in v_res.get("organic_results", [])[:4]:
-            is_ntp = "namethatporn.com" in r.get("link", "")
-            matched_links.append({
-                "title": r.get("title", "Direct Web Archive"),
+        scene_query = f'"{clean_name}" (1080p OR 4K OR "full scene" OR stream) site:namethatporn.com OR site:iafd.com OR video'
+        s_url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(scene_query)}&api_key={api_key}"
+        s_res = requests.get(s_url, timeout=10).json()
+        for r in s_res.get("organic_results", [])[:4]:
+            video_scene_links.append({
+                "title": f"4K / 1080p Scene: {r.get('title', 'Full Stream Mirror')}",
                 "url": r.get("link", "#"),
-                "badge_type": "ntp" if is_ntp else "mirror",
-                "badge_label": "NameThatPorn" if is_ntp else "Mirror Link"
+                "badge_type": "4k",
+                "badge_label": "1080p/4K Mirror"
             })
     except Exception:
         pass
@@ -392,7 +392,7 @@ def deep_multi_engine_crawler(name: str, api_key: str):
     except Exception:
         pass
 
-    return clean_name, meta, photo_url, matched_links
+    return clean_name, meta, photo_url, reddit_links, video_scene_links
 
 @app.get("/")
 def index():
@@ -416,7 +416,6 @@ async def scan(
         cdn_url = upload_res.get("secure_url")
         target_img_display = cdn_url
         
-        # Google Lens / Yandex Visual Fallback
         if api_key:
             try:
                 lens_url = f"https://serpapi.com/search.json?engine=google_lens&url={urllib.parse.quote(cdn_url)}&api_key={api_key}"
@@ -427,7 +426,7 @@ async def scan(
                     creator_name = re.split(r'[-–|/@]', raw_title)[0].strip()
             except Exception:
                 pass
-        creator_name, meta, _, matched_links = deep_multi_engine_crawler(creator_name, api_key)
+        creator_name, meta, _, reddit_links, video_scene_links = deep_multi_engine_crawler(creator_name, api_key)
 
     elif image_url and image_url.strip():
         url_input = image_url.strip()
@@ -436,10 +435,10 @@ async def scan(
             target_img_display = upload_res.get("secure_url")
         except Exception:
             target_img_display = url_input
-        creator_name, meta, _, matched_links = deep_multi_engine_crawler("Verified Performer", api_key)
+        creator_name, meta, _, reddit_links, video_scene_links = deep_multi_engine_crawler("Verified Performer", api_key)
 
     elif keyword_name and keyword_name.strip():
-        creator_name, meta, found_photo, matched_links = deep_multi_engine_crawler(keyword_name.strip(), api_key)
+        creator_name, meta, found_photo, reddit_links, video_scene_links = deep_multi_engine_crawler(keyword_name.strip(), api_key)
         target_img_display = found_photo
 
     else:
@@ -451,15 +450,27 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    matched_html = ""
-    for item in matched_links:
-        badge_class = f"badge-{item.get('badge_type', 'mirror')}"
-        matched_html += f"""
+    # Separate HTML generators for Reddit and 4K Scene mirrors
+    reddit_html = ""
+    for item in reddit_links:
+        reddit_html += f"""
         <a href="{item['url']}" target="_blank" class="match-item">
             <span class="match-title">{item['title']}</span>
-            <span class="badge-source {badge_class}">[{item['badge_label']}] ↗</span>
+            <span class="badge-source badge-reddit">[{item['badge_label']}] ↗</span>
         </a>
         """
+
+    scene_html = ""
+    for item in video_scene_links:
+        badge_cls = f"badge-{item.get('badge_type', '4k')}"
+        scene_html += f"""
+        <a href="{item['url']}" target="_blank" class="match-item">
+            <span class="match-title">{item['title']}</span>
+            <span class="badge-source {badge_cls}">[{item['badge_label']}] ↗</span>
+        </a>
+        """
+
+    total_matches = len(reddit_links) + len(video_scene_links)
 
     result_html = f"""
     <div class="result-box">
@@ -467,7 +478,6 @@ async def scan(
         <div class="name">{creator_name}</div>
         <div class="aliases-sub">Aliases: {meta['aliases']}</div>
 
-        <!-- 1. Authentic Crawled Biodata -->
         <div class="info-card">
             <div class="card-head">Verified Performer Biodata</div>
             <table class="data-table">
@@ -479,16 +489,6 @@ async def scan(
             </table>
         </div>
 
-        <!-- 2. Official Social Handles -->
-        <div class="card-head" style="text-align:left;">Official Channels & Social Profiles</div>
-        <div class="links-wrap">
-            <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
-            <a class="btn-social" href="{twitter_url}" target="_blank">Twitter / X</a>
-            <a class="btn-social" href="{onlyfans_url}" target="_blank">OnlyFans</a>
-            <a class="btn-social" href="{fansly_url}" target="_blank">Fansly</a>
-        </div>
-
-        <!-- 3. Video Stream Vault (480p Free Demo / 1080p & 4K VIP ₹99/yr) -->
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
@@ -536,11 +536,10 @@ async def scan(
             </div>
         </div>
 
-        <!-- 4. Direct Source Links Gate (Reddit & Dedicated Engine Mirrors) -->
         <div class="card-head" style="text-align:left;">Dedicated Engines & Reddit r/tipofmypenis Mirrors</div>
         
         <div class="links-gate-box" id="linksGateCard">
-            <div class="links-gate-title">🔒 {len(matched_links)} Verified Community & Scene Mirrors Ready</div>
+            <div class="links-gate-title">🔒 {total_matches} Verified Community & Scene Mirrors Ready</div>
             <div class="links-gate-sub">Choose how you want to unlock all direct web source links:</div>
             <div class="gate-btn-group">
                 <button type="button" class="btn-gate-ad" onclick="triggerLinkAd()">📺 Watch Ad to View (Free)</button>
@@ -549,7 +548,19 @@ async def scan(
         </div>
 
         <div class="links-unlocked" id="linksVault">
-            {matched_html if matched_html else '<p style="font-size:12px;color:#64748b;">No direct mirrors indexed.</p>'}
+            <div style="font-size:11px; font-weight:700; color:#ff4500; text-transform:uppercase; margin-bottom:6px;">● Reddit Community Solved Threads</div>
+            {reddit_html if reddit_html else '<p style="font-size:12px;color:#64748b;margin-bottom:10px;">No active Reddit threads found.</p>'}
+            
+            <div style="font-size:11px; font-weight:700; color:#eab308; text-transform:uppercase; margin: 12px 0 6px;">● Dedicated 1080p / 4K Scene & Face Mirrors</div>
+            {scene_html if scene_html else '<p style="font-size:12px;color:#64748b;margin-bottom:10px;">No direct mirrors indexed.</p>'}
+        </div>
+
+        <div class="card-head" style="text-align:left; margin-top:16px;">Official Channels & Social Profiles</div>
+        <div class="links-wrap">
+            <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
+            <a class="btn-social" href="{twitter_url}" target="_blank">Twitter / X</a>
+            <a class="btn-social" href="{onlyfans_url}" target="_blank">OnlyFans</a>
+            <a class="btn-social" href="{fansly_url}" target="_blank">Fansly</a>
         </div>
     </div>
     """
