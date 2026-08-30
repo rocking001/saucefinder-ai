@@ -17,13 +17,19 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# Cloudinary Setup
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-    secure=True
-)
+c_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+c_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
+c_sec = os.getenv("CLOUDINARY_API_SECRET", "").strip()
+
+print(f"DEBUG: Cloudinary config - name={bool(c_name)}, key={bool(c_key)}, secret={bool(c_sec)}")
+
+if c_name and c_key and c_sec:
+    cloudinary.config(
+        cloud_name=c_name,
+        api_key=c_key,
+        api_secret=c_sec,
+        secure=True
+    )
 
 DB_FILE = "saucefinder.db"
 
@@ -198,7 +204,6 @@ def deep_sauce_extractor(image_path: str):
     insta = ""
     detected_source = ""
 
-    # Engine 1: Yandex
     try:
         yandex_url = "https://yandex.com/images/search?rpt=imageview"
         with open(image_path, 'rb') as f:
@@ -219,7 +224,6 @@ def deep_sauce_extractor(image_path: str):
     except Exception:
         pass
 
-    # Engine 2: Bing
     if not name:
         try:
             bing_url = "https://www.bing.com/images/searchbyimage"
@@ -265,12 +269,12 @@ async def scan(image_file: UploadFile = File(...)):
         f.write(await image_file.read())
     
     cdn_url = None
-    if os.getenv("CLOUDINARY_CLOUD_NAME"):
-        try:
-            upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
-            cdn_url = upload_res.get("secure_url")
-        except Exception:
-            pass
+    try:
+        upload_res = cloudinary.uploader.upload(save_path, folder="saucefinder_scans")
+        cdn_url = upload_res.get("secure_url")
+        print("CLOUDINARY SUCCESS:", cdn_url)
+    except Exception as e:
+        print("CLOUDINARY ERROR:", str(e))
 
     final_img_url = cdn_url if cdn_url else f"/uploads/{image_file.filename}"
 
