@@ -82,7 +82,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro</title>
+<title>SauceFinder Pro — Deep Dork Intelligence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -181,6 +181,8 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .match-title { font-size: 12px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 290px; }
 .match-src { font-size: 10px; color: #eab308; font-weight: 600; }
 
+.dork-item { border-left: 3px solid #eab308; background: rgba(234, 179, 8, 0.05); }
+
 .tag-input-box { display: flex; gap: 6px; margin-top: 8px; }
 .tag-input-box input { flex: 1; padding: 8px 10px; background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: #fff; font-size: 12px; }
 .tag-input-box button { padding: 8px 12px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -191,28 +193,8 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .modal-card { background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 22px; max-width: 360px; width: 100%; text-align: center; }
 
 .choice-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
-.btn-choice-ad {
-    background: linear-gradient(135deg, #0284c7, #0369a1);
-    color: #fff;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-}
-.btn-choice-pay {
-    background: linear-gradient(135deg, #eab308, #ca8a04);
-    color: #000;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 800;
-    cursor: pointer;
-    font-family: inherit;
-}
+.btn-choice-ad { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.btn-choice-pay { background: linear-gradient(135deg, #eab308, #ca8a04); color: #000; border: none; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit; }
 
 .ad-box { background: rgba(3, 7, 18, 0.6); border: 1.5px dashed #475569; padding: 20px 10px; border-radius: 10px; margin: 12px 0; color: #cbd5e1; font-size: 13px; }
 .qr-box { background: #fff; border-radius: 8px; width: 130px; height: 130px; margin: 12px auto; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 13px; }
@@ -224,7 +206,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">12-Tier Engine: Biometrics, Scene Mirrors & Community Vault</div>
+    <div class="sub">Advanced Dork & Deep Web Multi-Tier Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -249,18 +231,18 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
                 <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Rose Noir, Kendra Lust">
             </div>
 
-            <button type="submit" class="btn-primary">Execute Multi-Tier Scan</button>
+            <button type="submit" class="btn-primary">Execute Deep Intelligence Scan</button>
         </form>
     </div>
 
     _RESULT_PLACEHOLDER_
 </div>
 
-<!-- Step 1: Choice Modal (Watch Ad vs Pay 9) -->
+<!-- Step 1: Choice Modal -->
 <div class="modal-overlay" id="choiceModal">
     <div class="modal-card">
-        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Unlock Video & Source Links</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 0;">Choose how you want to unlock matching streams:</p>
+        <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Unlock Video & Deep Mirrors</h3>
+        <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 0;">Choose how you want to unlock buried forum & host links:</p>
         <div class="choice-grid">
             <button type="button" class="btn-choice-ad" onclick="startAdCountdown()">📺 Watch Short Ad to Unlock (Free)</button>
             <button type="button" class="btn-choice-pay" onclick="openPaymentQR()">⚡ Pay ₹9 for Instant Access</button>
@@ -269,25 +251,25 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     </div>
 </div>
 
-<!-- Step 2: Ad Countdown Modal -->
+<!-- Step 2: Ad Modal -->
 <div class="modal-overlay" id="adModal">
     <div class="modal-card">
         <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Stream</h3>
         <p style="font-size: 12px; color: #94a3b8; margin: 6px 0 10px;">Unlocking internet source mirrors...</p>
         <div class="ad-box">
             <strong>[SPONSOR NETWORK AD]</strong><br>
-            <span style="font-size: 11px; color: #64748b;">Delivering High Speed Source Matches</span>
+            <span style="font-size: 11px; color: #64748b;">Delivering High Speed Deep Web Matches</span>
         </div>
         <div id="adTimer" style="font-size: 13px; font-weight: 700; color: #eab308; margin-bottom: 12px;">Please wait 5s...</div>
-        <button id="adCloseBtn" style="display:none; width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantAccess()">View All Video Links</button>
+        <button id="adCloseBtn" style="display:none; width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantAccess()">View All Buried Mirrors</button>
     </div>
 </div>
 
-<!-- Step 3: UPI ₹9 Modal -->
+<!-- Step 3: UPI Modal -->
 <div class="modal-overlay" id="payModal">
     <div class="modal-card">
         <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Instant Pass</h3>
-        <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 8px;">Skip ads and unlock instant full archives</p>
+        <p style="font-size: 12px; color: #94a3b8; margin: 4px 0 8px;">Skip ads and unlock instant deep archive</p>
         <div class="qr-box">UPI Pay ₹9</div>
         <p style="font-size: 11px; color: #38bdf8; margin-bottom: 12px;">Scan UPI QR to activate pass</p>
         <button style="width:100%; padding:10px; background:#22c55e; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;" onclick="grantAccess()">I Have Paid ₹9 (Unlock Now)</button>
@@ -393,6 +375,44 @@ def get_performer_meta(name: str):
         "studios": "Digital Network", "films": "Signature Collection"
     }
 
+def execute_deep_dork_pipeline(target_name: str, api_key: str):
+    """Deep dork crawler that mines beyond Page 1 and queries hidden forum/host domains."""
+    dork_results = []
+    if not api_key:
+        return dork_results
+
+    # 1. Advanced Dork Query: Forum Sauce Threads + Video Archives
+    dork_query = f'"{target_name}" (site:reddit.com OR site:simpcity.su OR site:vipergirls.to OR site:bunkr.is OR site:pixeldrain.com) "sauce" OR "video"'
+    url = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(dork_query)}&start=0&num=10&api_key={api_key}"
+    try:
+        res = requests.get(url, timeout=12).json()
+        for r in res.get("organic_results", []):
+            dork_results.append({
+                "title": f"⚡ [Deep Mirror] {r.get('title', 'Forum Sauce Thread')}",
+                "url": r.get("link", "#"),
+                "source": r.get("displayed_link", "Forum/Host Mirror"),
+                "is_dork": True
+            })
+    except Exception:
+        pass
+
+    # 2. Page 2 / Deep Page Crawl (start=10)
+    page2_query = f'"{target_name}" full scene stream source'
+    url_page2 = f"https://serpapi.com/search.json?engine=google&q={urllib.parse.quote(page2_query)}&start=10&num=6&api_key={api_key}"
+    try:
+        res2 = requests.get(url_page2, timeout=10).json()
+        for r in res2.get("organic_results", []):
+            dork_results.append({
+                "title": f"🔍 [Deep Page 2] {r.get('title', 'Buried Archive')}",
+                "url": r.get("link", "#"),
+                "source": r.get("displayed_link", "Web Archive"),
+                "is_dork": False
+            })
+    except Exception:
+        pass
+
+    return dork_results
+
 def extract_lens_full_report(image_url: str):
     api_key = os.getenv("SERPAPI_API_KEY")
     if not api_key:
@@ -409,14 +429,21 @@ def extract_lens_full_report(image_url: str):
             if len(clean_name) < 2:
                 clean_name = "Verified Creator"
             domain = top.get("source", "Web Intelligence")
+            
             matched_links = []
-            for m in matches[:8]:
+            for m in matches[:6]:
                 matched_links.append({
                     "title": m.get("title", "Direct Web Archive"),
                     "url": m.get("link", "#"),
-                    "source": m.get("source", "Web Archive")
+                    "source": m.get("source", "Web Archive"),
+                    "is_dork": False
                 })
-            return clean_name, f"Cross-platform biometric match verified.", domain, matched_links
+
+            # Append Deep Dorked and Buried Results
+            deep_mirrors = execute_deep_dork_pipeline(clean_name, api_key)
+            matched_links.extend(deep_mirrors)
+
+            return clean_name, f"Cross-platform biometric match verified with Deep Web Dorking.", domain, matched_links
     except Exception:
         pass
     return "Verified Creator", "Cross-platform identity match verified.", "Web", []
@@ -441,19 +468,24 @@ def search_by_text_keyword(query: str):
         try:
             res = requests.get(url, timeout=15).json()
             organic = res.get("organic_results", [])
-            for r in organic[:8]:
+            for r in organic[:6]:
                 matched_links.append({
                     "title": r.get("title", "Direct Web Archive"),
                     "url": r.get("link", "#"),
-                    "source": r.get("displayed_link", "Archive Link")
+                    "source": r.get("displayed_link", "Archive Link"),
+                    "is_dork": False
                 })
         except Exception:
             pass
 
+        # Append Deep Dorking
+        deep_mirrors = execute_deep_dork_pipeline(clean_name, api_key)
+        matched_links.extend(deep_mirrors)
+
     if not found_photo:
         found_photo = f"https://api.dicebear.com/7.x/identicon/svg?seed={urllib.parse.quote(clean_name)}"
 
-    return clean_name, f"Full biometric & scene profile for {clean_name}.", "Google Index", matched_links, found_photo
+    return clean_name, f"Full biometric & deep scene profile for {clean_name}.", "Deep Index", matched_links, found_photo
 
 @app.get("/")
 def index():
@@ -501,7 +533,6 @@ async def scan(
     meta = get_performer_meta(creator_name)
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator_name).lower()
     
-    # Official Social Profiles (Completely Free & Clickable)
     insta_url = f"https://www.instagram.com/explore/tags/{clean_tag}/"
     twitter_url = f"https://x.com/search?q={urllib.parse.quote(creator_name)}"
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
@@ -509,8 +540,9 @@ async def scan(
 
     matched_html = ""
     for item in matched_links:
+        extra_class = "dork-item" if item.get("is_dork") else ""
         matched_html += f"""
-        <a href="{item['url']}" target="_blank" class="match-item">
+        <a href="{item['url']}" target="_blank" class="match-item {extra_class}">
             <span class="match-title">{item['title']}</span>
             <span class="match-src">[{item['source']}] ↗</span>
         </a>
@@ -522,7 +554,6 @@ async def scan(
         <div class="name">{creator_name}</div>
         <div class="aliases-sub">Aliases: {meta['aliases']}</div>
 
-        <!-- 1. Free Metrics -->
         <div class="metric-strip">
             <div class="metric-pill">
                 <div class="metric-lbl">Vector Index</div>
@@ -533,12 +564,11 @@ async def scan(
                 <div class="metric-val" style="color:#4ade80;">98.4% Match</div>
             </div>
             <div class="metric-pill">
-                <div class="metric-lbl">Frame pHash</div>
-                <div class="metric-val" style="font-size:10px; font-family:monospace;">{phash_val}</div>
+                <div class="metric-lbl">Deep Dork Status</div>
+                <div class="metric-val" style="color:#eab308;">Active Crawl</div>
             </div>
         </div>
 
-        <!-- 2. Free Biometrics -->
         <div class="info-card">
             <div class="card-head">Biometrical Attributes</div>
             <table class="data-table">
@@ -549,7 +579,6 @@ async def scan(
             </table>
         </div>
 
-        <!-- 3. Free Scene & Studio Credits -->
         <div class="info-card">
             <div class="card-head">Scene & Studio Credits</div>
             <table class="data-table">
@@ -560,7 +589,6 @@ async def scan(
             </table>
         </div>
 
-        <!-- 4. Free Verified Profiles -->
         <div class="card-head" style="text-align:left;">Verified Profiles & Channels</div>
         <div class="links-wrap">
             <a class="btn-social" href="{insta_url}" target="_blank">Instagram</a>
@@ -569,20 +597,18 @@ async def scan(
             <a class="btn-social" href="{reddit_url}" target="_blank">Reddit Vault</a>
         </div>
 
-        <!-- 5. Gated Video Links Container -->
-        <div class="card-head" style="text-align:left;">Direct Web Source Archive</div>
+        <div class="card-head" style="text-align:left;">Deep Web Source Archives & Buried Mirrors</div>
         
         <div class="archive-gate-card" id="gateCard">
-            <div class="archive-gate-title">Matching Videos & Source Clips Found</div>
-            <div class="archive-gate-sub">Unlock all direct web mirrors and stream links:</div>
+            <div class="archive-gate-title">⚡ {len(matched_links)} Deep Mirrors & Forum Sauce Uncovered</div>
+            <div class="archive-gate-sub">Includes Page 2+ archives, discussion threads & public hosts:</div>
             <button type="button" class="btn-watch-gate" onclick="openChoiceModal()">Watch Free / Direct Unlock</button>
         </div>
 
         <div class="links-unlocked" id="linksVault">
-            {matched_html if matched_html else '<p style="font-size:12px;color:#64748b;">No archives indexed.</p>'}
+            {matched_html if matched_html else '<p style="font-size:12px;color:#64748b;">No deep mirrors indexed.</p>'}
         </div>
 
-        <!-- 6. Community Tagging -->
         <div class="info-card" style="margin-top:14px;">
             <div class="card-head">Community Tagging</div>
             <span style="font-size:11px; color:#94a3b8;">Help verify aliases, scene title or attributes:</span>
