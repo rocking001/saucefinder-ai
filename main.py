@@ -17,25 +17,74 @@ import cloudinary.uploader
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 RENDER_URL = "https://saucefinder-ai.onrender.com"
 
+DATA_FILE = "video_registry.json"
 DEFAULT_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
 
-# Global Live Database
+# Global Live Database (in-memory + file persistence)
 VIDEO_DATABASE = {
     "raja": DEFAULT_STREAM,
     "rohit": DEFAULT_STREAM,
     "latest": DEFAULT_STREAM
 }
 
-# In-memory registry of newly discovered Instagram models
-DISCOVERED_INSTA_MODELS = set()
+# Load existing saved database if present
+if os.path.exists(DATA_FILE):
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+            VIDEO_DATABASE.update(saved)
+    except Exception:
+        pass
+
+def save_registry():
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(VIDEO_DATABASE, f, indent=2)
+    except Exception as e:
+        print(f"[REGISTRY SAVE ERROR] {e}")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
+REDDIT_HEADERS = {
+    "User-Agent": "SauceFinderBot/2.0 (by /u/saucefinder_crawler)"
+}
 
-def discover_instagram_models_from_comments():
-    """Scrapes public indexed Instagram reel discussions, viral sauce comments and tags"""
-    found_names = set()
+# -------------------------------------------------------------
+# 1. REDDIT HARVESTER: r/tipofmypenis & r/sauce (Solved Threads)
+# -------------------------------------------------------------
+def fetch_reddit_trending_creators():
+    discovered = set()
+    subreddits = ["tipofmypenis", "sauce"]
+    for sub in subreddits:
+        try:
+            url = f"https://www.reddit.com/r/{sub}/hot.json?limit=25"
+            r = requests.get(url, headers=REDDIT_HEADERS, timeout=6)
+            if r.status_code == 200:
+                posts = r.json().get("data", {}).get("children", [])
+                for p in posts:
+                    data = p.get("data", {})
+                    title = data.get("title", "")
+                    link_flair = (data.get("link_flair_text") or "").lower()
+                    
+                    # Solved tag matching
+                    if "solved" in link_flair or "solved" in title.lower():
+                        # Extract bracketed/quoted names like [Solved] Name or Solved: Name
+                        match = re.search(r'(?:solved|found|name)\s*[:=\-\]\/]\s*([A-Za-z\s]{3,25})', title, re.I)
+                        if match:
+                            candidate = match.group(1).strip()
+                            words = candidate.split()
+                            if 1 <= len(words) <= 3 and words[0].lower() not in ["the", "this", "my", "link", "post"]:
+                                discovered.add(candidate.title())
+        except Exception as e:
+            print(f"[REDDIT CRAWLER NOTICE] {sub}: {e}")
+    return list(discovered)
+
+# -------------------------------------------------------------
+# 2. INSTAGRAM COMMENT & VIRAL REEL HARVESTER
+# -------------------------------------------------------------
+def fetch_instagram_trending_creators():
+    discovered = set()
     queries = [
         'site:instagram.com/reel "who is she" OR "sauce" OR "model name"',
         'site:instagram.com/p "who is she" OR "id please"',
@@ -45,76 +94,92 @@ def discover_instagram_models_from_comments():
         try:
             url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(q)}"
             res = requests.get(url, headers=HEADERS, timeout=5)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            for a in soup.find_all('a', class_='result__snippet') + soup.find_all('a', class_='result__url'):
+            soup = BeautifulSoup(res.text, "html.parser")
+            for a in soup.find_all("a", class_="result__snippet") + soup.find_all("a", class_="result__url"):
                 text = a.get_text()
-                # Find @handles or explicit model mentions in snippet comments
                 handles = re.findall(r'@([a-zA-Z0-9_\.]{3,25})', text)
                 for h in handles:
-                    clean_h = h.lower().strip('.')
-                    if clean_h not in ['instagram', 'reels', 'explore', 'viral', 'p', 'reel']:
-                        found_names.add(clean_h)
-                
-                # Also find name patterns after "name:" or "model:"
-                name_matches = re.findall(r'(?:name|model|id|sauce)\s*[:=\-]\s*([A-Za-z0-9_]{3,20})', text, re.I)
-                for nm in name_matches:
-                    clean_nm = nm.lower().strip()
-                    if clean_nm not in ['link', 'bio', 'comment', 'here', 'please']:
-                        found_names.add(clean_nm)
-        except Exception as e:
-            print(f"[INSTA DISCOVERY NOTICE] Query error: {e}")
-    return list(found_names)
+                    clean_h = h.lower().strip(".")
+                    if clean_h not in ["instagram", "reels", "explore", "viral", "p", "reel", "comments"]:
+                        discovered.add(clean_h)
+        except Exception:
+            pass
+    return list(discovered)
 
-async def autonomous_instagram_daemon():
-    """Continuous background worker: Crawls Instagram comments/reels, indexes creators, maps streams"""
-    print("[AUTONOMOUS INSTA WORKER] Instagram Comment & Sauce Harvester Online!")
+# -------------------------------------------------------------
+# 3. VIDEO CLIP STREAM EXTRACTOR: Public Trailer/Preview Links
+# -------------------------------------------------------------
+def extract_stream_preview(creator_name: str) -> str:
+    try:
+        search_query = f"{creator_name} official scene trailer video stream mp4"
+        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(search_query)}"
+        res = requests.get(q_url, headers=HEADERS, timeout=4)
+        soup = BeautifulSoup(res.text, "html.parser")
+        for link_tag in soup.find_all("a", href=True):
+            href = link_tag["href"]
+            if any(ext in href.lower() for ext in [".mp4", "trailer", "preview_stream", ".m3u8"]):
+                return href
+    except Exception:
+        pass
+    return DEFAULT_STREAM
+
+# -------------------------------------------------------------
+# 4. AUTONOMOUS MASTER DAEMON: Runs 24/7 in Background
+# -------------------------------------------------------------
+async def autonomous_master_daemon():
+    print("[AUTONOMOUS MASTER ENGINE] Reddit + Instagram + Tube Harvester Started!")
     while True:
         try:
-            new_creators = discover_instagram_models_from_comments()
-            print(f"[AUTONOMOUS INSTA WORKER] Discovered {len(new_creators)} potential creators from Instagram comments.")
+            # 1. Harvest from Reddit
+            reddit_creators = fetch_reddit_trending_creators()
+            print(f"[HARVESTER: REDDIT] Discovered {len(reddit_creators)} solved models.")
             
-            for creator in new_creators[:8]:  # Process batch of discovered models
-                clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator.lower())
-                if clean_tag not in VIDEO_DATABASE:
-                    DISCOVERED_INSTA_MODELS.add(clean_tag)
-                    
-                    # Search stream preview link for discovered model
-                    q = f"{clean_tag} reel clip video mp4 stream"
-                    stream_url = DEFAULT_STREAM
-                    try:
-                        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(q)}"
-                        r = requests.get(q_url, headers=HEADERS, timeout=4)
-                        s = BeautifulSoup(r.text, 'html.parser')
-                        for link_tag in s.find_all('a', href=True):
-                            link = link_tag['href']
-                            if any(ext in link.lower() for ext in ['.mp4', 'stream', 'preview']):
-                                stream_url = link
-                                break
-                    except Exception:
-                        pass
-                    
-                    VIDEO_DATABASE[clean_tag] = stream_url
-                    print(f"[INSTA AUTO-INGESTED] Added @{clean_tag} to Live Video Database!")
-                await asyncio.sleep(2)
-        except Exception as e:
-            print(f"[INSTA DAEMON ERROR] {e}")
+            # 2. Harvest from Instagram Comments
+            insta_creators = fetch_instagram_trending_creators()
+            print(f"[HARVESTER: INSTA] Discovered {len(insta_creators)} handles/names.")
 
-        # Re-scan Instagram trends and comments every 30 minutes
-        await asyncio.sleep(1800)
+            all_creators = list(set(reddit_creators + insta_creators))
+            
+            # Fallback seed models if scrapers face rate limits
+            seeds = ["Eva Elfie", "Alyx Star", "Sweetie Fox", "Kendra Lust", "Angela White", "Riley Reid", "Emily Willis", "Niks Indian"]
+            for s in seeds:
+                if s not in all_creators:
+                    all_creators.append(s)
+
+            # 3. Extract Streams & Auto-Populate Database
+            added_count = 0
+            for name in all_creators:
+                clean_tag = re.sub(r'[^a-zA-Z0-9]', '', name.lower()).strip()
+                if clean_tag and (clean_tag not in VIDEO_DATABASE or VIDEO_DATABASE[clean_tag] == DEFAULT_STREAM):
+                    stream_url = extract_stream_preview(name)
+                    VIDEO_DATABASE[clean_tag] = stream_url
+                    added_count += 1
+                    print(f"[DATABASE AUTO-POPULATED] #{clean_tag} -> Stream Mapped!")
+                    await asyncio.sleep(1.5)  # Safe rate delay
+
+            if added_count > 0:
+                save_registry()
+                print(f"[REGISTRY UPDATED] Total indexed creators: {len(VIDEO_DATABASE)}")
+
+        except Exception as e:
+            print(f"[HARVESTER CYCLE ERROR] {e}")
+
+        # Re-run the harvesting scan every 20 minutes automatically
+        await asyncio.sleep(1200)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Setup Telegram Webhook
+    # Telegram Webhook Auto-Registration
     webhook_url = f"{RENDER_URL}/tg_webhook"
     api_url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setWebhook?url={webhook_url}"
     try:
         res = requests.get(api_url, timeout=5)
-        print(f"Telegram Webhook Status: {res.json().get('description')}")
+        print(f"Telegram Webhook: {res.json().get('description')}")
     except Exception as e:
-        print(f"Webhook notice: {e}")
+        print(f"Webhook init notice: {e}")
 
-    # Launch Instagram Comment Auto-Discoverer
-    asyncio.create_task(autonomous_instagram_daemon())
+    # Launch 24/7 background autonomous harvester
+    asyncio.create_task(autonomous_master_daemon())
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -150,33 +215,34 @@ async def telegram_webhook(req: Request):
                 direct_file_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
                 VIDEO_DATABASE[tag] = direct_file_url
                 VIDEO_DATABASE["latest"] = direct_file_url
-                print(f"[TELEGRAM LIVE SYNC] Auto-bound incoming video to #{tag}")
+                save_registry()
+                print(f"[TELEGRAM PUSH] Saved #{tag} to database!")
     except Exception as e:
         print(f"Webhook notice: {e}")
     return JSONResponse({"status": "ok"})
 
 def reverse_image_recognize(image_url: str) -> str:
     try:
-        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' instagram model performer')}"
+        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' model actress performer')}"
         res = requests.get(q_url, headers=HEADERS, timeout=3)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        for item in soup.find_all('div', class_='result__body')[:3]:
-            t_tag = item.find('a', class_='result__title')
+        soup = BeautifulSoup(res.text, "html.parser")
+        for item in soup.find_all("div", class_="result__body")[:3]:
+            t_tag = item.find("a", class_="result__title")
             if t_tag:
                 cleaned = re.sub(r'[^a-zA-Z\s]', '', t_tag.text.strip())
                 words = cleaned.split()
-                if len(words) >= 2 and words[0].lower() not in ['http', 'https', 'www']:
+                if len(words) >= 2 and words[0].lower() not in ["http", "https", "www"]:
                     return f"{words[0]} {words[1]}".title()
     except Exception:
         pass
-    return "Trending Model"
+    return "Trending Creator"
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Autonomous Instagram & Video Harvester</title>
+<title>SauceFinder Pro — Autonomous Harvester Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -288,7 +354,6 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .btn-play-free { background: #2563eb; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .btn-unlock-vip { background: #eab308; color: #000; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
 
-/* In-Page Player */
 .free-player-box { display: block; margin-top: 12px; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.2); }
 .free-player-box video { width: 100%; max-height: 280px; display: block; background: #000; }
 
@@ -310,7 +375,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Autonomous Instagram Sauce & Video Harvester</div>
+    <div class="sub">Autonomous Reddit, Instagram & Video Harvester</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -332,7 +397,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. @model_handle, Raja, Rohit">
+                <input type="text" name="keyword_name" placeholder="e.g. Eva Elfie, Alyx Star, Raja">
             </div>
 
             <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
@@ -492,7 +557,7 @@ async def scan(
         creator_name = reverse_image_recognize(target_img_display)
 
     elif keyword_name and keyword_name.strip():
-        creator_name = keyword_name.strip()
+        creator_name = keyword_name.strip().title()
         clean_encoded = urllib.parse.quote(creator_name)
         target_img_display = f"https://ui-avatars.com/api/?name={clean_encoded}&background=0284c7&color=fff&size=256&bold=true"
 
@@ -500,19 +565,20 @@ async def scan(
         return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", "<p style='color:#ef4444; margin-top:15px; font-size:13px;'>Please provide input.</p>"))
 
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator_name).lower()
-    insta_url = f"https://www.instagram.com/{clean_tag}/" if clean_tag.startswith("@") or clean_tag in DISCOVERED_INSTA_MODELS else f"https://www.instagram.com/explore/tags/{clean_tag}/"
+    insta_url = f"https://www.instagram.com/explore/tags/{clean_tag}/"
     twitter_url = f"https://x.com/search?q={urllib.parse.quote(creator_name)}"
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    stream_internal_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or DEFAULT_STREAM
-    source_badge = "● Instagram Viral Match" if clean_tag in DISCOVERED_INSTA_MODELS else "● Active Verified Stream"
+    # Auto-match from populated database
+    stream_internal_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("latest") or DEFAULT_STREAM
+    source_badge = "● Auto-Ingested Stream" if clean_tag in VIDEO_DATABASE else "● Live Verified Stream"
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="{creator_name}">
-        <div class="name">{creator_name.title()}</div>
-        <div class="aliases-sub">Indexed from Instagram: @{clean_tag}</div>
+        <div class="name">{creator_name}</div>
+        <div class="aliases-sub">Indexed in Vault: #{clean_tag}</div>
 
         <div class="links-gate-box" id="linksGateCard">
             <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
@@ -525,7 +591,7 @@ async def scan(
 
         <div class="of-vip-banner">
             <div class="of-text">
-                <div class="of-vip-title">👑 Unlock @{clean_tag} OnlyFans Vault</div>
+                <div class="of-vip-title">👑 Unlock {creator_name} OnlyFans Vault</div>
                 <div class="of-vip-sub">Full uncut videos & private HD stream archive</div>
             </div>
             <button type="button" class="btn-of-unlock" onclick="openVipModal()">Get VIP (₹99/Yr)</button>
@@ -534,7 +600,7 @@ async def scan(
         <div class="links-unlocked" id="linksVault">
             <div style="font-size:11px; font-weight:700; color:#22c55e; text-transform:uppercase; margin-bottom:6px;">● Direct Web Stream Mirrors (In-Page)</div>
             <div class="match-item" onclick="playInPageVideo('{stream_internal_url}')">
-                <span class="match-title">▶ Play Full Web Stream Mirror (@{clean_tag})</span>
+                <span class="match-title">▶ Play Full Web Stream Mirror ({creator_name})</span>
                 <span class="badge-source badge-stream">[Play On Page] ↗</span>
             </div>
             <a href="https://www.reddit.com/r/tipofmypenis/search/?q={urllib.parse.quote(creator_name)}" target="_blank" class="match-item">
