@@ -16,23 +16,30 @@ import cloudinary.uploader
 
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 RENDER_URL = "https://saucefinder-ai.onrender.com"
-
 DATA_FILE = "video_registry.json"
+
 DEFAULT_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
 
-# Global Live Database (in-memory + file persistence)
+# Global Desi Registry
 VIDEO_DATABASE = {
     "raja": DEFAULT_STREAM,
     "rohit": DEFAULT_STREAM,
-    "latest": DEFAULT_STREAM
+    "latest": DEFAULT_STREAM,
+    "anjali": DEFAULT_STREAM,
+    "niksindian": DEFAULT_STREAM
 }
 
-# Load existing saved database if present
+# Pre-seeded popular Indian influencers & creators for instant match
+DESI_SEED_LIST = [
+    "Niks Indian", "Anjali Arora", "Apoorva Arora", "Sofia Ansari", 
+    "Poonam Pandey", "Sherlyn Chopra", "Gehana Vasisth", "Kavita Radheshyam",
+    "Priya Gamre", "Sneha Paul", "Rani Chatterjee", "Monami Ghosh"
+]
+
 if os.path.exists(DATA_FILE):
     try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
-            saved = json.load(f)
-            VIDEO_DATABASE.update(saved)
+            VIDEO_DATABASE.update(json.load(f))
     except Exception:
         pass
 
@@ -43,143 +50,101 @@ def save_registry():
     except Exception as e:
         print(f"[REGISTRY SAVE ERROR] {e}")
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-}
 REDDIT_HEADERS = {
-    "User-Agent": "SauceFinderBot/2.0 (by /u/saucefinder_crawler)"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 DesiHarvester/1.0"
+}
+WEB_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
 
 # -------------------------------------------------------------
-# 1. REDDIT HARVESTER: r/tipofmypenis & r/sauce (Solved Threads)
+# 1. DESI REDDIT & VIRAL INFLUENCER HARVESTER
 # -------------------------------------------------------------
-def fetch_reddit_trending_creators():
+def fetch_desi_reddit_models():
+    """Scrapes top Indian subreddits for viral influencer handles and model names"""
     discovered = set()
-    subreddits = ["tipofmypenis", "sauce"]
-    for sub in subreddits:
+    desi_subreddits = ["DesiCelebs", "IndianBabes", "IndianInstaSobhitas", "DesiMeta"]
+    
+    for sub in desi_subreddits:
         try:
             url = f"https://www.reddit.com/r/{sub}/hot.json?limit=25"
-            r = requests.get(url, headers=REDDIT_HEADERS, timeout=6)
+            r = requests.get(url, headers=REDDIT_HEADERS, timeout=5)
             if r.status_code == 200:
                 posts = r.json().get("data", {}).get("children", [])
                 for p in posts:
-                    data = p.get("data", {})
-                    title = data.get("title", "")
-                    link_flair = (data.get("link_flair_text") or "").lower()
+                    title = p.get("data", {}).get("title", "")
                     
-                    # Solved tag matching
-                    if "solved" in link_flair or "solved" in title.lower():
-                        # Extract bracketed/quoted names like [Solved] Name or Solved: Name
-                        match = re.search(r'(?:solved|found|name)\s*[:=\-\]\/]\s*([A-Za-z\s]{3,25})', title, re.I)
-                        if match:
-                            candidate = match.group(1).strip()
-                            words = candidate.split()
-                            if 1 <= len(words) <= 3 and words[0].lower() not in ["the", "this", "my", "link", "post"]:
-                                discovered.add(candidate.title())
+                    # Pattern 1: Clean names before bracketed info e.g. "Anjali Arora [album]" or "Sofia Ansari (reels)"
+                    clean_name = re.split(r'[\[\(\-\|\:]', title)[0].strip()
+                    
+                    # Pattern 2: Instagram handles @username
+                    insta_handles = re.findall(r'@([a-zA-Z0-9_\.]{3,25})', title)
+                    for h in insta_handles:
+                        discovered.add(h.lower().strip('.'))
+                        
+                    words = clean_name.split()
+                    if 1 <= len(words) <= 3 and words[0].lower() not in ["the", "my", "desi", "indian", "viral", "new", "hot", "anyone"]:
+                        discovered.add(clean_name.title())
         except Exception as e:
-            print(f"[REDDIT CRAWLER NOTICE] {sub}: {e}")
+            print(f"[DESI HARVESTER NOTICE] {sub}: {e}")
     return list(discovered)
 
-# -------------------------------------------------------------
-# 2. INSTAGRAM COMMENT & VIRAL REEL HARVESTER
-# -------------------------------------------------------------
-def fetch_instagram_trending_creators():
-    discovered = set()
-    queries = [
-        'site:instagram.com/reel "who is she" OR "sauce" OR "model name"',
-        'site:instagram.com/p "who is she" OR "id please"',
-        '"name in comments" site:instagram.com reels'
-    ]
-    for q in queries:
-        try:
-            url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(q)}"
-            res = requests.get(url, headers=HEADERS, timeout=5)
-            soup = BeautifulSoup(res.text, "html.parser")
-            for a in soup.find_all("a", class_="result__snippet") + soup.find_all("a", class_="result__url"):
-                text = a.get_text()
-                handles = re.findall(r'@([a-zA-Z0-9_\.]{3,25})', text)
-                for h in handles:
-                    clean_h = h.lower().strip(".")
-                    if clean_h not in ["instagram", "reels", "explore", "viral", "p", "reel", "comments"]:
-                        discovered.add(clean_h)
-        except Exception:
-            pass
-    return list(discovered)
-
-# -------------------------------------------------------------
-# 3. VIDEO CLIP STREAM EXTRACTOR: Public Trailer/Preview Links
-# -------------------------------------------------------------
-def extract_stream_preview(creator_name: str) -> str:
+def extract_desi_preview(creator_name: str) -> str:
+    """Finds fast playable stream links for the creator"""
     try:
-        search_query = f"{creator_name} official scene trailer video stream mp4"
-        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(search_query)}"
-        res = requests.get(q_url, headers=HEADERS, timeout=4)
+        query = f"{creator_name} viral reel video stream mp4"
+        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+        res = requests.get(q_url, headers=WEB_HEADERS, timeout=3)
         soup = BeautifulSoup(res.text, "html.parser")
-        for link_tag in soup.find_all("a", href=True):
-            href = link_tag["href"]
-            if any(ext in href.lower() for ext in [".mp4", "trailer", "preview_stream", ".m3u8"]):
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if any(ext in href.lower() for ext in [".mp4", "preview", "cdn"]):
                 return href
     except Exception:
         pass
     return DEFAULT_STREAM
 
 # -------------------------------------------------------------
-# 4. AUTONOMOUS MASTER DAEMON: Runs 24/7 in Background
+# 2. CONTINUOUS DESI BACKGROUND WORKER
 # -------------------------------------------------------------
-async def autonomous_master_daemon():
-    print("[AUTONOMOUS MASTER ENGINE] Reddit + Instagram + Tube Harvester Started!")
+async def desi_background_daemon():
+    print("[DESI HARVESTER ENGINE] Indian Content Pipeline Active!")
     while True:
         try:
-            # 1. Harvest from Reddit
-            reddit_creators = fetch_reddit_trending_creators()
-            print(f"[HARVESTER: REDDIT] Discovered {len(reddit_creators)} solved models.")
-            
-            # 2. Harvest from Instagram Comments
-            insta_creators = fetch_instagram_trending_creators()
-            print(f"[HARVESTER: INSTA] Discovered {len(insta_creators)} handles/names.")
+            harvested = fetch_desi_reddit_models()
+            all_targets = list(set(harvested + DESI_SEED_LIST))
+            print(f"[DESI ENGINE] Processing {len(all_targets)} Indian creators/models...")
 
-            all_creators = list(set(reddit_creators + insta_creators))
-            
-            # Fallback seed models if scrapers face rate limits
-            seeds = ["Eva Elfie", "Alyx Star", "Sweetie Fox", "Kendra Lust", "Angela White", "Riley Reid", "Emily Willis", "Niks Indian"]
-            for s in seeds:
-                if s not in all_creators:
-                    all_creators.append(s)
-
-            # 3. Extract Streams & Auto-Populate Database
-            added_count = 0
-            for name in all_creators:
-                clean_tag = re.sub(r'[^a-zA-Z0-9]', '', name.lower()).strip()
+            for model in all_targets:
+                clean_tag = re.sub(r'[^a-zA-Z0-9]', '', model.lower()).strip()
                 if clean_tag and (clean_tag not in VIDEO_DATABASE or VIDEO_DATABASE[clean_tag] == DEFAULT_STREAM):
-                    stream_url = extract_stream_preview(name)
-                    VIDEO_DATABASE[clean_tag] = stream_url
-                    added_count += 1
-                    print(f"[DATABASE AUTO-POPULATED] #{clean_tag} -> Stream Mapped!")
-                    await asyncio.sleep(1.5)  # Safe rate delay
-
-            if added_count > 0:
-                save_registry()
-                print(f"[REGISTRY UPDATED] Total indexed creators: {len(VIDEO_DATABASE)}")
+                    stream_link = extract_desi_preview(model)
+                    VIDEO_DATABASE[clean_tag] = stream_link
+                    print(f"[DESI AUTO-POPULATED] Ingested: #{clean_tag}")
+                    await asyncio.sleep(1.5)
+            
+            save_registry()
+            print(f"[DESI REGISTRY UPDATED] Total entries: {len(VIDEO_DATABASE)}")
 
         except Exception as e:
-            print(f"[HARVESTER CYCLE ERROR] {e}")
+            print(f"[DESI CYCLE NOTICE] {e}")
 
-        # Re-run the harvesting scan every 20 minutes automatically
+        # Auto refresh every 20 minutes
         await asyncio.sleep(1200)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Telegram Webhook Auto-Registration
+    # Telegram Webhook registration
     webhook_url = f"{RENDER_URL}/tg_webhook"
     api_url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setWebhook?url={webhook_url}"
     try:
         res = requests.get(api_url, timeout=5)
         print(f"Telegram Webhook: {res.json().get('description')}")
     except Exception as e:
-        print(f"Webhook init notice: {e}")
+        print(f"Webhook notice: {e}")
 
-    # Launch 24/7 background autonomous harvester
-    asyncio.create_task(autonomous_master_daemon())
+    # Start background Indian harvester
+    asyncio.create_task(desi_background_daemon())
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -195,6 +160,9 @@ cloudinary.config(
     secure=True
 )
 
+# -------------------------------------------------------------
+# 3. PRIORITY TELEGRAM OVERRIDE (For Sudden Viral Trends)
+# -------------------------------------------------------------
 @app.post("/tg_webhook")
 async def telegram_webhook(req: Request):
     try:
@@ -216,15 +184,19 @@ async def telegram_webhook(req: Request):
                 VIDEO_DATABASE[tag] = direct_file_url
                 VIDEO_DATABASE["latest"] = direct_file_url
                 save_registry()
-                print(f"[TELEGRAM PUSH] Saved #{tag} to database!")
+                
+                chat_id = message["chat"]["id"]
+                msg_txt = f"✅ Viral Video Mapped Instantly!\nTag: #{tag}\nStatus: Live in database"
+                requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(msg_txt)}")
+                print(f"[HOT-INJECT TELEGRAM] Instant viral mapped for #{tag}")
     except Exception as e:
         print(f"Webhook notice: {e}")
     return JSONResponse({"status": "ok"})
 
 def reverse_image_recognize(image_url: str) -> str:
     try:
-        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' model actress performer')}"
-        res = requests.get(q_url, headers=HEADERS, timeout=3)
+        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' indian model instagram actress')}"
+        res = requests.get(q_url, headers=WEB_HEADERS, timeout=3)
         soup = BeautifulSoup(res.text, "html.parser")
         for item in soup.find_all("div", class_="result__body")[:3]:
             t_tag = item.find("a", class_="result__title")
@@ -235,14 +207,14 @@ def reverse_image_recognize(image_url: str) -> str:
                     return f"{words[0]} {words[1]}".title()
     except Exception:
         pass
-    return "Trending Creator"
+    return "Desi Creator"
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Autonomous Harvester Engine</title>
+<title>SauceFinder Pro — Desi Viral Harvester</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -354,6 +326,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .btn-play-free { background: #2563eb; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .btn-unlock-vip { background: #eab308; color: #000; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
 
+/* In-Page Player */
 .free-player-box { display: block; margin-top: 12px; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.2); }
 .free-player-box video { width: 100%; max-height: 280px; display: block; background: #000; }
 
@@ -375,7 +348,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Autonomous Reddit, Instagram & Video Harvester</div>
+    <div class="sub">Desi Viral & Influencer Recognition Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -397,7 +370,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Eva Elfie, Alyx Star, Raja">
+                <input type="text" name="keyword_name" placeholder="e.g. Sofia Ansari, Anjali Arora, Priya">
             </div>
 
             <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
@@ -536,7 +509,7 @@ async def scan(
     keyword_name: Optional[str] = Form(None)
 ):
     target_img_display = ""
-    creator_name = "Trending Creator"
+    creator_name = "Desi Creator"
 
     if image_file and image_file.filename:
         save_path = os.path.join(UPLOAD_DIR, image_file.filename)
@@ -570,15 +543,14 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    # Auto-match from populated database
-    stream_internal_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("latest") or DEFAULT_STREAM
-    source_badge = "● Auto-Ingested Stream" if clean_tag in VIDEO_DATABASE else "● Live Verified Stream"
+    stream_internal_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or DEFAULT_STREAM
+    source_badge = "● Desi Vault Match" if clean_tag in VIDEO_DATABASE else "● Live Stream Active"
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Indexed in Vault: #{clean_tag}</div>
+        <div class="aliases-sub">Indexed Desi Match: #{clean_tag}</div>
 
         <div class="links-gate-box" id="linksGateCard">
             <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
@@ -603,9 +575,9 @@ async def scan(
                 <span class="match-title">▶ Play Full Web Stream Mirror ({creator_name})</span>
                 <span class="badge-source badge-stream">[Play On Page] ↗</span>
             </div>
-            <a href="https://www.reddit.com/r/tipofmypenis/search/?q={urllib.parse.quote(creator_name)}" target="_blank" class="match-item">
+            <a href="https://www.reddit.com/r/DesiCelebs/search/?q={urllib.parse.quote(creator_name)}" target="_blank" class="match-item">
                 <span class="match-title">🔍 Reddit Solved Thread: {creator_name}</span>
-                <span class="badge-source badge-reddit">[Community Match] ↗</span>
+                <span class="badge-source badge-reddit">[Desi Match] ↗</span>
             </a>
         </div>
 
@@ -618,7 +590,7 @@ async def scan(
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Live Preview Stream</div>
-                    <div class="tier-sub">Zero buffer • Live autonomous stream</div>
+                    <div class="tier-sub">Instant zero-buffer mobile delivery</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
