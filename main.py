@@ -25,7 +25,6 @@ from hydrogram import Client
 TG_API_ID = 39123012
 TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
-TG_CHANNEL_LINK = "https://t.me/+F-cm-YmYiBdmNjBl"
 TG_CHAT_ID = -1001184901229
 
 WORKING_MIRRORS = [
@@ -41,24 +40,13 @@ tg_client = Client(
     in_memory=True
 )
 
-target_chat_peer = None
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global target_chat_peer
     try:
         await tg_client.start()
-        print("Telegram MTProto Authorized Successfully!")
-        # Auto-resolve channel peer
-        try:
-            target_chat_peer = await tg_client.get_chat(TG_CHAT_ID)
-        except Exception:
-            try:
-                target_chat_peer = await tg_client.get_chat(TG_CHANNEL_LINK)
-            except Exception as e:
-                print(f"Peer resolve warning: {e}")
+        print("Telegram MTProto Connected & Ready!")
     except Exception as e:
-        print(f"Telegram startup error: {e}")
+        print(f"Telegram client error: {e}")
     yield
     try:
         await tg_client.stop()
@@ -400,17 +388,15 @@ def reverse_image_recognize(image_url: str):
     return "Verified Creator"
 
 async def get_stream_url_for_query(query_name: str) -> str:
-    global target_chat_peer
     try:
         if tg_client.is_connected:
-            chat_target = target_chat_peer if target_chat_peer else TG_CHAT_ID
             clean_q = query_name.lower().replace(" ", "")
-            async for message in tg_client.get_chat_history(chat_target, limit=15):
+            async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=15):
                 caption = (message.caption or "").lower()
                 if message.video or message.document:
                     if not query_name or clean_q in caption or f"#{clean_q}" in caption:
                         return f"/stream_msg/{message.id}"
-            async for message in tg_client.get_chat_history(chat_target, limit=15):
+            async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=15):
                 if message.video or message.document:
                     return f"/stream_msg/{message.id}"
     except Exception as e:
@@ -419,13 +405,11 @@ async def get_stream_url_for_query(query_name: str) -> str:
 
 @app.get("/stream_msg/{msg_id}")
 async def stream_telegram_message(msg_id: int, range: Optional[str] = Header(None)):
-    global target_chat_peer
     try:
         if not tg_client.is_connected:
             await tg_client.start()
 
-        chat_target = target_chat_peer if target_chat_peer else TG_CHAT_ID
-        msg = await tg_client.get_messages(chat_target, msg_id)
+        msg = await tg_client.get_messages(TG_CHAT_ID, msg_id)
         media = msg.video or msg.document
         if not media:
             raise Exception("No media found")
@@ -557,7 +541,6 @@ async def scan(
                 </div>
             </div>
 
-            <!-- In-Page Player Element -->
             <div class="free-player-box" id="freePlayer">
                 <video id="mainVideoElement" controls playsinline preload="auto" poster="{target_img_display}">
                     <source src="{stream_internal_url}" type="video/mp4">
