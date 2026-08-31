@@ -1,6 +1,5 @@
 ﻿import os
 import sys
-import json
 import asyncio
 
 try:
@@ -24,12 +23,12 @@ from bs4 import BeautifulSoup
 from hydrogram import Client, filters
 from hydrogram.types import Message
 
-# Verified Telegram Setup
 TG_API_ID = 39123012
 TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
+TG_CHANNEL_ID = -1001184901229
 
-# 100% Reliable Active CDN Video (Never fails, tested worldwide)
+# Reliable direct playback mirror
 RELIABLE_ACTIVE_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
 
 LIVE_STREAMS = {
@@ -44,13 +43,13 @@ tg_client = Client(
     in_memory=True
 )
 
-@tg_client.on_message(filters.private & (filters.video | filters.document))
-async def capture_telegram_video(client: Client, message: Message):
+# Listen to BOTH Private DMs AND the Channel
+@tg_client.on_message((filters.chat(TG_CHANNEL_ID) | filters.private) & (filters.video | filters.document))
+async def capture_all_videos(client: Client, message: Message):
     media = message.video or message.document
     caption = (message.caption or "").strip().lower()
     tag = re.sub(r'[^a-zA-Z0-9]', '', caption) if caption else "rohit"
     
-    # Download file to local temporary storage and host via Cloudinary CDN for lag-free streaming
     temp_path = f"uploads/{media.file_unique_id}.mp4"
     await client.download_media(message, file_name=temp_path)
     
@@ -59,21 +58,38 @@ async def capture_telegram_video(client: Client, message: Message):
         stream_url = res.get("secure_url")
         LIVE_STREAMS[tag] = stream_url
         LIVE_STREAMS["latest"] = stream_url
+        LIVE_STREAMS["rohit"] = stream_url
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        await message.reply_text(f"✅ Video Hosted & Linked!\nTag: #{tag}\nStream is now live on SauceFinder!")
+        print(f"[CHANNEL SYNC SUCCESS] Tag: #{tag} linked to CDN: {stream_url}")
     except Exception as e:
-        print(f"Cloud upload error: {e}")
+        print(f"Upload error: {e}")
         LIVE_STREAMS[tag] = RELIABLE_ACTIVE_STREAM
-        await message.reply_text(f"✅ Video registered with Fast Stream Mirror!")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         await tg_client.start()
-        print("Telegram Video Pipeline Active!")
+        print("Telegram Channel & DM Listener Active!")
+        
+        # Load latest video from channel history on startup
+        try:
+            async for msg in tg_client.get_chat_history(TG_CHANNEL_ID, limit=5):
+                if msg.video or msg.document:
+                    t_path = f"uploads/init_latest.mp4"
+                    await tg_client.download_media(msg, file_name=t_path)
+                    up = cloudinary.uploader.upload_large(t_path, resource_type="video", folder="saucefinder_videos")
+                    init_url = up.get("secure_url")
+                    LIVE_STREAMS["latest"] = init_url
+                    LIVE_STREAMS["rohit"] = init_url
+                    if os.path.exists(t_path):
+                        os.remove(t_path)
+                    print(f"[INIT] Loaded channel video: {init_url}")
+                    break
+        except Exception as e:
+            print(f"Init fetch notice: {e}")
     except Exception as e:
-        print(f"Pipeline start notice: {e}")
+        print(f"Telegram start notice: {e}")
     yield
     try:
         await tg_client.stop()
@@ -89,7 +105,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "sauceapp"),
     api_key=os.getenv("CLOUDINARY_API_KEY", "771493188544456"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET", "N94X6k5Kx1yDk5V2qB7Xg0z3L1U"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
     secure=True
 )
 
