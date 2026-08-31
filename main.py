@@ -17,12 +17,7 @@ DEFAULT_SAMPLE = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sam
 VIDEO_DATABASE = {
     "raja": DEFAULT_SAMPLE,
     "rohit": DEFAULT_SAMPLE,
-    "latest": DEFAULT_SAMPLE,
-    "alyxstar": DEFAULT_SAMPLE,
-    "sofiaansari": DEFAULT_SAMPLE,
-    "anjaliarora": DEFAULT_SAMPLE,
-    "apoorvaarora": DEFAULT_SAMPLE,
-    "priyagamre": DEFAULT_SAMPLE
+    "latest": DEFAULT_SAMPLE
 }
 
 if os.path.exists(DATA_FILE):
@@ -51,11 +46,11 @@ def setup_webhook():
     api_url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setWebhook?url={webhook_url}"
     try:
         res = requests.get(api_url, timeout=5)
-        print(f"[TG WEBHOOK FIXED] {res.json()}")
+        print(f"[TG WEBHOOK STATUS] {res.json()}")
     except Exception as e:
-        print(f"[WEBHOOK SETUP ERROR] {e}")
+        print(f"[WEBHOOK ERROR] {e}")
 
-# Telegram Webhook Receiver
+# Telegram Push Webhook
 @app.post("/tg_webhook")
 async def telegram_webhook(req: Request):
     try:
@@ -73,36 +68,39 @@ async def telegram_webhook(req: Request):
             f_info = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
             if f_info.get("ok"):
                 f_path = f_info["result"]["file_path"]
-                # Store proxy endpoint so browser can play without CORS block
-                proxy_url = f"{RENDER_URL}/tg_stream?path={f_path}"
+                # Proxy URL through our server to defeat browser CORS blocks
+                proxy_url = f"/tg_stream?path={urllib.parse.quote(f_path)}"
                 
                 VIDEO_DATABASE[tag] = proxy_url
                 VIDEO_DATABASE["latest"] = proxy_url
                 VIDEO_DATABASE["raja"] = proxy_url
-                VIDEO_DATABASE["rohit"] = proxy_url
                 save_registry()
                 
-                print(f"[TG VIDEO SYNCED] Tag #{tag} -> {proxy_url}")
                 chat_id = message["chat"]["id"]
-                confirm_msg = f"✅ Video Saved & Synced!\nTag: #{tag}\nWebsite par '{tag}' search karein!"
-                requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(confirm_msg)}")
+                confirm_txt = f"✅ Video Linked!\nTag: #{tag}\nNow live on SauceFinder Pro!"
+                requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(confirm_txt)}")
+                print(f"[TG SYNC SUCCESS] Tag #{tag} stored via proxy.")
     except Exception as e:
-        print(f"[WEBHOOK ERROR] {e}")
+        print(f"[WEBHOOK RUN ERROR] {e}")
     return JSONResponse({"status": "ok"})
 
-# Video Proxy to bypass Telegram hotlink/CORS browser block
+# Video Stream Proxy: Pipes video directly to browser
 @app.get("/tg_stream")
 def stream_telegram_file(path: str):
-    tg_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{path}"
-    req = requests.get(tg_url, stream=True)
-    return StreamingResponse(req.iter_content(chunk_size=1024*1024), media_type="video/mp4")
+    try:
+        tg_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{urllib.parse.unquote(path)}"
+        req = requests.get(tg_url, stream=True)
+        return StreamingResponse(req.iter_content(chunk_size=1024*512), media_type="video/mp4")
+    except Exception:
+        fallback = requests.get(DEFAULT_SAMPLE, stream=True)
+        return StreamingResponse(fallback.iter_content(chunk_size=1024*512), media_type="video/mp4")
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro</title>
+<title>SauceFinder Pro — Scene Aggregator</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -143,11 +141,12 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 
 .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #38bdf8; margin: 12px 0 6px; text-align: left; letter-spacing: 0.5px; }
 .links-grid { display: flex; flex-direction: column; gap: 8px; }
-.link-card { background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #f1f5f9; font-size: 12px; font-weight: 600; }
+.link-card { background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 11px 12px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #f1f5f9; font-size: 12px; font-weight: 600; }
 .link-card:hover { border-color: #38bdf8; background: rgba(15, 23, 42, 0.9); }
-.badge-tag { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
+.badge-tag { font-size: 9px; font-weight: 800; padding: 3px 6px; border-radius: 4px; }
 .badge-tg { background: #0284c7; color: #fff; }
 .badge-web { background: #16a34a; color: #fff; }
+.badge-reddit { background: #ff4500; color: #fff; }
 .badge-vip { background: #ca8a04; color: #fff; }
 </style>
 </head>
@@ -157,7 +156,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Scene Recognition & Full Stream Directory</div>
+    <div class="sub">Direct Scene Recognition & Source Aggregator</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -174,7 +173,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
                 </label>
             </div>
             <div class="tab-pane" id="pane-url">
-                <input type="url" name="image_url" placeholder="https://example.com/photo.jpg">
+                <input type="url" name="image_url" placeholder="https://example.com/scene.jpg">
             </div>
             <div class="tab-pane" id="pane-name">
                 <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Raja, Sofia Ansari">
@@ -228,11 +227,12 @@ async def scan(
         with open(save_p, "wb") as f:
             f.write(await image_file.read())
         target_img = f"/uploads/{image_file.filename}"
-        creator_name = "Alyx Star"
+        clean_stem = re.sub(r'[^a-zA-Z\s]', '', os.path.splitext(image_file.filename)[0]).strip()
+        creator_name = clean_stem.title() if len(clean_stem) > 2 else "Sofia Ansari"
 
     elif image_url and image_url.strip():
         target_img = image_url.strip()
-        creator_name = "Alyx Star"
+        creator_name = "Sofia Ansari"
 
     elif keyword_name and keyword_name.strip():
         creator_name = keyword_name.strip().title()
@@ -242,12 +242,15 @@ async def scan(
         return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", "<p style='color:#ef4444; margin-top:10px;'>Please provide input.</p>"))
 
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator_name).lower()
+    
+    # Check registry or fallback to working direct stream
     stream_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or DEFAULT_SAMPLE
 
     query_enc = urllib.parse.quote(creator_name)
     simpcity_link = f"https://simpcity.su/search/1/?q={query_enc}&o=relevance"
+    reddit_desi_link = f"https://www.reddit.com/r/DesiCelebs/search/?q={query_enc}&restrict_sr=1"
     fapello_link = f"https://fapello.com/search/{clean_tag}/"
-    telegram_bot_link = "https://t.me/Httpclipbot"
+    insta_link = f"https://www.instagram.com/explore/tags/{clean_tag}/"
 
     result_html = f"""
     <div class="result-box">
@@ -263,23 +266,27 @@ async def scan(
             </video>
         </div>
 
-        <div class="section-label">🌐 Full Video & Scene Sources</div>
+        <div class="section-label">🌐 Verified Source Archives</div>
         <div class="links-grid">
-            <a href="{telegram_bot_link}" target="_blank" class="link-card">
-                <span>🤖 Bot Vault: Post / Stream New Clips</span>
-                <span class="badge-tag badge-tg">TELEGRAM</span>
-            </a>
             <a href="{simpcity_link}" target="_blank" class="link-card">
                 <span>🔍 SimpCity Verified Scene Archive</span>
-                <span class="badge-tag badge-web">SOURCE 1</span>
+                <span class="badge-tag badge-web">SIMPCITY ↗</span>
+            </a>
+            <a href="{reddit_desi_link}" target="_blank" class="link-card">
+                <span>💬 Reddit Desi & Solved Threads</span>
+                <span class="badge-tag badge-reddit">REDDIT ↗</span>
             </a>
             <a href="{fapello_link}" target="_blank" class="link-card">
-                <span>📸 Fapello High-Res Photo & Leaks</span>
-                <span class="badge-tag badge-web">SOURCE 2</span>
+                <span>📸 Fapello High-Res Stream Mirror</span>
+                <span class="badge-tag badge-web">MIRROR ↗</span>
             </a>
-            <a href="#" onclick="alert('VIP Uncut access unlocked via Telegram Bot!')" class="link-card" style="border-color: rgba(202, 138, 4, 0.4);">
-                <span>⭐ Full 1080p 60FPS Uncut Master</span>
-                <span class="badge-tag badge-vip">VIP UNLOCK</span>
+            <a href="{insta_link}" target="_blank" class="link-card">
+                <span>✨ Official Instagram Handle/Reels</span>
+                <span class="badge-tag badge-tg">INSTAGRAM ↗</span>
+            </a>
+            <a href="https://t.me/Httpclipbot" target="_blank" class="link-card" style="border-color: rgba(202, 138, 4, 0.4);">
+                <span>⭐ Submit / Stream New Clips via Bot</span>
+                <span class="badge-tag badge-vip">BOT VAULT ↗</span>
             </a>
         </div>
     </div>
