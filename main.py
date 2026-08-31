@@ -5,24 +5,24 @@ import urllib.parse
 from typing import Optional
 import requests
 from fastapi import FastAPI, Request, File, UploadFile, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-# CORRECT BOT TOKEN WITH DOUBLE 'O'
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 RENDER_URL = "https://saucefinder-ai.onrender.com"
 DATA_FILE = "video_registry.json"
 
-# Direct Universal Browser Playable MP4 Stream (H.264 / AAC - Instant Start)
-UNIVERSAL_WORKING_STREAM = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+DEFAULT_SAMPLE = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
 
 VIDEO_DATABASE = {
-    "raja": UNIVERSAL_WORKING_STREAM,
-    "rohit": UNIVERSAL_WORKING_STREAM,
-    "latest": UNIVERSAL_WORKING_STREAM,
-    "alyxstar": UNIVERSAL_WORKING_STREAM,
-    "sofiaansari": UNIVERSAL_WORKING_STREAM,
-    "anjaliarora": UNIVERSAL_WORKING_STREAM
+    "raja": DEFAULT_SAMPLE,
+    "rohit": DEFAULT_SAMPLE,
+    "latest": DEFAULT_SAMPLE,
+    "alyxstar": DEFAULT_SAMPLE,
+    "sofiaansari": DEFAULT_SAMPLE,
+    "anjaliarora": DEFAULT_SAMPLE,
+    "apoorvaarora": DEFAULT_SAMPLE,
+    "priyagamre": DEFAULT_SAMPLE
 }
 
 if os.path.exists(DATA_FILE):
@@ -55,6 +55,7 @@ def setup_webhook():
     except Exception as e:
         print(f"[WEBHOOK SETUP ERROR] {e}")
 
+# Telegram Webhook Receiver
 @app.post("/tg_webhook")
 async def telegram_webhook(req: Request):
     try:
@@ -72,21 +73,29 @@ async def telegram_webhook(req: Request):
             f_info = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
             if f_info.get("ok"):
                 f_path = f_info["result"]["file_path"]
-                # Proxied streaming link via telegram file endpoint
-                direct_file_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
+                # Store proxy endpoint so browser can play without CORS block
+                proxy_url = f"{RENDER_URL}/tg_stream?path={f_path}"
                 
-                VIDEO_DATABASE[tag] = direct_file_url
-                VIDEO_DATABASE["latest"] = direct_file_url
-                VIDEO_DATABASE["raja"] = direct_file_url
+                VIDEO_DATABASE[tag] = proxy_url
+                VIDEO_DATABASE["latest"] = proxy_url
+                VIDEO_DATABASE["raja"] = proxy_url
+                VIDEO_DATABASE["rohit"] = proxy_url
                 save_registry()
                 
-                print(f"[TG LIVE SYNC SUCCESS] Key #{tag} mapped to {direct_file_url}")
+                print(f"[TG VIDEO SYNCED] Tag #{tag} -> {proxy_url}")
                 chat_id = message["chat"]["id"]
-                confirm_msg = f"✅ Video Linked!\nTag: #{tag}\nClick 'Play Now' on site!"
+                confirm_msg = f"✅ Video Saved & Synced!\nTag: #{tag}\nWebsite par '{tag}' search karein!"
                 requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(confirm_msg)}")
     except Exception as e:
         print(f"[WEBHOOK ERROR] {e}")
     return JSONResponse({"status": "ok"})
+
+# Video Proxy to bypass Telegram hotlink/CORS browser block
+@app.get("/tg_stream")
+def stream_telegram_file(path: str):
+    tg_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{path}"
+    req = requests.get(tg_url, stream=True)
+    return StreamingResponse(req.iter_content(chunk_size=1024*1024), media_type="video/mp4")
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
@@ -105,39 +114,41 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 14px;
+    padding: 20px 14px;
 }
-.wrapper { width: 100%; max-width: 540px; text-align: center; }
-.brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px; }
-.logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, #38bdf8, #2563eb); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; }
-.title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-.sub { font-size: 13px; color: #64748b; margin-bottom: 24px; }
-.glass-card { background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); border-radius: 16px; padding: 20px; text-align: left; }
-.tabs { display: flex; gap: 6px; background: rgba(3, 7, 18, 0.6); padding: 4px; border-radius: 10px; margin-bottom: 18px; }
+.wrapper { width: 100%; max-width: 520px; text-align: center; }
+.brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
+.logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #38bdf8, #2563eb); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; }
+.title { font-size: 24px; font-weight: 800; }
+.sub { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+.glass-card { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); border-radius: 16px; padding: 18px; text-align: left; }
+.tabs { display: flex; gap: 6px; background: rgba(3, 7, 18, 0.6); padding: 4px; border-radius: 10px; margin-bottom: 14px; }
 .tab-btn { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 7px; color: #94a3b8; font-size: 12px; font-weight: 600; cursor: pointer; }
 .tab-btn.active { background: #1e293b; color: #38bdf8; }
 .tab-pane { display: none; }
 .tab-pane.active { display: block; }
-.file-drop { border: 1.5px dashed rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 20px; text-align: center; background: rgba(3, 7, 18, 0.4); cursor: pointer; display: block; }
+.file-drop { border: 1.5px dashed rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 18px; text-align: center; background: rgba(3, 7, 18, 0.4); cursor: pointer; display: block; }
 input[type="file"] { display: none; }
 input[type="text"], input[type="url"] { width: 100%; padding: 12px 14px; background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; color: #f1f5f9; font-size: 13px; }
-button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 14px; margin-top: 16px; cursor: pointer; }
+button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 14px; margin-top: 14px; cursor: pointer; }
 
-.result-box { margin-top: 24px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.3); backdrop-filter: blur(16px); border-radius: 18px; padding: 22px; text-align: center; }
-.result-img { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; margin-bottom: 10px; }
-.name { font-size: 22px; font-weight: 800; }
-.aliases-sub { font-size: 11px; color: #94a3b8; margin: 2px 0 16px; }
-
-.stream-vault { background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 14px; padding: 16px; text-align: left; margin-top: 14px; }
-.vault-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.result-box { margin-top: 20px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 18px; padding: 20px; text-align: center; }
+.result-img { width: 95px; height: 95px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; margin-bottom: 8px; }
+.name { font-size: 20px; font-weight: 800; }
+.aliases-sub { font-size: 11px; color: #94a3b8; margin-bottom: 14px; }
 
 /* Direct HTML5 Player */
-.free-player-box { width: 100%; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.3); margin-bottom: 12px; }
-.free-player-box video { width: 100%; max-height: 280px; display: block; background: #000; }
+.player-box { width: 100%; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.3); margin-bottom: 14px; }
+.player-box video { width: 100%; max-height: 260px; display: block; background: #000; }
 
-.tier-item { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
-.tier-badge-free { font-size: 10px; font-weight: 800; background: #22c55e; color: #000; padding: 3px 8px; border-radius: 4px; }
-.btn-play-free { background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #38bdf8; margin: 12px 0 6px; text-align: left; letter-spacing: 0.5px; }
+.links-grid { display: flex; flex-direction: column; gap: 8px; }
+.link-card { background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: #f1f5f9; font-size: 12px; font-weight: 600; }
+.link-card:hover { border-color: #38bdf8; background: rgba(15, 23, 42, 0.9); }
+.badge-tag { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
+.badge-tg { background: #0284c7; color: #fff; }
+.badge-web { background: #16a34a; color: #fff; }
+.badge-vip { background: #ca8a04; color: #fff; }
 </style>
 </head>
 <body>
@@ -146,16 +157,16 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Verified Instant Playback Engine</div>
+    <div class="sub">Scene Recognition & Full Stream Directory</div>
 
     <div class="glass-card">
         <div class="tabs">
             <button type="button" class="tab-btn active" onclick="switchTab('photo')">Photo Upload</button>
             <button type="button" class="tab-btn" onclick="switchTab('url')">Image URL</button>
-            <button type="button" class="tab-btn" onclick="switchTab('name')">Name Directory</button>
+            <button type="button" class="tab-btn" onclick="switchTab('name')">Name Search</button>
         </div>
 
-        <form action="/scan" method="POST" enctype="multipart/form-data" id="scanForm">
+        <form action="/scan" method="POST" enctype="multipart/form-data">
             <div class="tab-pane active" id="pane-photo">
                 <label class="file-drop" for="fileInput">
                     <span id="fileLabelText" style="font-size:13px; color:#94a3b8;"><strong>Click to upload</strong> photo / screenshot</span>
@@ -163,12 +174,12 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
                 </label>
             </div>
             <div class="tab-pane" id="pane-url">
-                <input type="url" name="image_url" placeholder="https://example.com/scene.jpg">
+                <input type="url" name="image_url" placeholder="https://example.com/photo.jpg">
             </div>
             <div class="tab-pane" id="pane-name">
                 <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Raja, Sofia Ansari">
             </div>
-            <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
+            <button type="submit" class="btn-primary">Execute Visual Scan & Match</button>
         </form>
     </div>
 
@@ -194,19 +205,6 @@ function fileChosen(input) {
     if (input.files && input.files[0]) {
         document.getElementById('fileLabelText').innerHTML = 'Selected: <strong style="color:#22c55e;">' + input.files[0].name + '</strong>';
     }
-}
-function playInPageVideo(url) {
-    const v = document.getElementById('mainVideoElement');
-    if (!v) return;
-    v.src = url;
-    v.muted = false;
-    v.load();
-    v.scrollIntoView({ behavior: 'smooth' });
-    v.play().catch(e => {
-        console.log("Autoplay unmuted blocked, falling back to muted play:", e);
-        v.muted = true;
-        v.play();
-    });
 }
 </script>
 </body>
@@ -244,38 +242,45 @@ async def scan(
         return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", "<p style='color:#ef4444; margin-top:10px;'>Please provide input.</p>"))
 
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator_name).lower()
-    stream_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or UNIVERSAL_WORKING_STREAM
+    stream_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or DEFAULT_SAMPLE
+
+    query_enc = urllib.parse.quote(creator_name)
+    simpcity_link = f"https://simpcity.su/search/1/?q={query_enc}&o=relevance"
+    fapello_link = f"https://fapello.com/search/{clean_tag}/"
+    telegram_bot_link = "https://t.me/Httpclipbot"
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Active Stream Key: #{clean_tag}</div>
+        <div class="aliases-sub">Active Vault Registry: #{clean_tag}</div>
 
-        <div class="stream-vault">
-            <div class="vault-title">
-                <span>Verified Fast Stream</span>
-                <span style="color:#22c55e; font-size:11px;">● Stream Ready</span>
-            </div>
+        <div class="section-label">⚡ Direct Scene Playback</div>
+        <div class="player-box">
+            <video controls autoplay muted playsinline preload="auto" poster="{target_img}">
+                <source src="{stream_url}" type="video/mp4">
+                Your browser does not support HTML5 video.
+            </video>
+        </div>
 
-            <!-- In-Page Player with Muted Autoplay (Bypasses Browser Security Freeze) -->
-            <div class="free-player-box">
-                <video id="mainVideoElement" controls autoplay muted playsinline preload="auto" poster="{target_img}">
-                    <source src="{stream_url}" type="video/mp4">
-                    Your browser does not support HTML5 video.
-                </video>
-            </div>
-
-            <div class="tier-item">
-                <div>
-                    <div style="font-size:12px; font-weight:600;">Play with Sound (Unmute)</div>
-                    <div style="font-size:10px; color:#94a3b8;">Instant streaming buffer</div>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="tier-badge-free">FREE</span>
-                    <button type="button" class="btn-play-free" onclick="playInPageVideo('{stream_url}')">Play Now ▶</button>
-                </div>
-            </div>
+        <div class="section-label">🌐 Full Video & Scene Sources</div>
+        <div class="links-grid">
+            <a href="{telegram_bot_link}" target="_blank" class="link-card">
+                <span>🤖 Bot Vault: Post / Stream New Clips</span>
+                <span class="badge-tag badge-tg">TELEGRAM</span>
+            </a>
+            <a href="{simpcity_link}" target="_blank" class="link-card">
+                <span>🔍 SimpCity Verified Scene Archive</span>
+                <span class="badge-tag badge-web">SOURCE 1</span>
+            </a>
+            <a href="{fapello_link}" target="_blank" class="link-card">
+                <span>📸 Fapello High-Res Photo & Leaks</span>
+                <span class="badge-tag badge-web">SOURCE 2</span>
+            </a>
+            <a href="#" onclick="alert('VIP Uncut access unlocked via Telegram Bot!')" class="link-card" style="border-color: rgba(202, 138, 4, 0.4);">
+                <span>⭐ Full 1080p 60FPS Uncut Master</span>
+                <span class="badge-tag badge-vip">VIP UNLOCK</span>
+            </a>
         </div>
     </div>
     """
