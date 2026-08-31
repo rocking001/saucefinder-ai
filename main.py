@@ -12,7 +12,7 @@ import cloudinary
 import cloudinary.uploader
 import requests
 from bs4 import BeautifulSoup
-from pyrogram import Client
+from hydrogram import Client
 
 # Telegram Credentials
 TG_API_ID = 39123012
@@ -20,7 +20,6 @@ TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
 TG_BOT_TOKEN = "8088875009:AAG1O5Dwf1ZHhbvWIVgp7lmsO0NbhwEEq0M"
 TG_CHAT_ID = -1001184901229
 
-# Pyrogram Client Setup
 tg_client = Client(
     "SauceStreamerSession",
     api_id=TG_API_ID,
@@ -111,7 +110,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .name { font-size: 22px; font-weight: 800; color: #f8fafc; }
 .aliases-sub { font-size: 11px; color: #94a3b8; margin: 2px 0 16px; }
 
-/* 1. Locked Direct Links Gate */
+/* Locked Direct Links Gate */
 .links-gate-box {
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.85));
     border: 1px dashed rgba(56, 189, 248, 0.4);
@@ -126,7 +125,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .btn-gate-ad { flex: 1; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
 .btn-gate-pay { flex: 1; background: linear-gradient(135deg, #eab308, #ca8a04); color: #000; border: none; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
 
-/* 2. Combined OnlyFans Banner */
+/* Combined OnlyFans Banner */
 .of-vip-banner {
     background: linear-gradient(135deg, rgba(0, 175, 240, 0.12), rgba(234, 179, 8, 0.12));
     border: 1px solid #00aff0;
@@ -162,7 +161,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .badge-stream { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; }
 .badge-reddit { background: rgba(255, 69, 0, 0.2); color: #ff4500; border: 1px solid #ff4500; }
 
-/* 3. Video Streams Box */
+/* Video Streams Box */
 .stream-vault { background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 14px; padding: 16px; text-align: left; margin-bottom: 16px; }
 .vault-title { font-size: 13px; font-weight: 700; color: #f8fafc; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
 .tier-item { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
@@ -177,7 +176,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .free-player-box { display: block; margin-top: 12px; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.2); }
 .free-player-box video { width: 100%; max-height: 260px; display: block; background: #000; }
 
-/* 4. Social Media Buttons */
+/* Social Media Buttons */
 .card-head { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; text-align: left; }
 .links-wrap { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .btn-social { flex: 1; min-width: 80px; background: rgba(30, 41, 59, 0.6); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); padding: 8px 6px; border-radius: 7px; text-decoration: none; font-size: 11px; font-weight: 600; text-align: center; }
@@ -197,7 +196,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Telegram MTProto Ultra Fast Stream Engine</div>
+    <div class="sub">Telegram MTProto Ultra Stream Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -229,6 +228,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     _RESULT_PLACEHOLDER_
 </div>
 
+<!-- 5s Ad Modal -->
 <div class="modal-overlay" id="adModal">
     <div class="modal-card">
         <h3 style="margin: 0; color: #f1f5f9; font-size: 17px; font-weight: 700;">Sponsor Stream</h3>
@@ -242,6 +242,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     </div>
 </div>
 
+<!-- ₹9/Year Pass Modal -->
 <div class="modal-overlay" id="linkPayModal">
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">INSTANT PASS</div>
@@ -257,6 +258,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
     </div>
 </div>
 
+<!-- VIP Pass Modal (₹99/Year for 1080p/4K & OnlyFans) -->
 <div class="modal-overlay" id="vipModal">
     <div class="modal-card">
         <div style="display:inline-block; background:rgba(234, 179, 8, 0.15); color:#eab308; border:1px solid #eab308; border-radius:20px; padding:3px 12px; font-size:11px; font-weight:800; margin-bottom:8px;">VIP ALL-ACCESS</div>
@@ -350,7 +352,6 @@ function closeModal(id) {
 FALLBACK_STREAM = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
 
 def reverse_image_recognize(image_url: str):
-    """Free open reverse visual parser."""
     try:
         q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' model performer actress')}"
         res = requests.get(q_url, headers=HEADERS, timeout=8)
@@ -367,27 +368,22 @@ def reverse_image_recognize(image_url: str):
     return "Verified Creator"
 
 async def search_channel_message_id(query_name: str) -> Optional[int]:
-    """Finds matching message ID directly via Pyrogram MTProto Client."""
     try:
         clean_q = query_name.lower().replace(" ", "")
         async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=25):
             caption = (message.caption or "").lower()
-            if (message.video or message.document):
+            if message.video or message.document:
                 if not query_name or clean_q in caption or f"#{clean_q}" in caption:
                     return message.id
-        # Fallback to latest video if not specifically found
         async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=25):
             if message.video or message.document:
                 return message.id
     except Exception as e:
-        print(f"Pyrogram search error: {e}")
+        print(f"Hydrogram search error: {e}")
     return None
 
 @app.get("/stream_msg/{msg_id}")
 async def stream_telegram_message(msg_id: int, range: Optional[str] = Header(None)):
-    """
-    High performance MTProto byte-range streamer (supports up to 4GB files).
-    """
     try:
         msg = await tg_client.get_messages(TG_CHAT_ID, msg_id)
         media = msg.video or msg.document
