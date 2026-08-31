@@ -1,8 +1,11 @@
 ﻿import os
 import re
 import json
+import asyncio
 import urllib.parse
 from typing import Optional
+from contextlib import asynccontextmanager
+
 import requests
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Request, File, UploadFile, Form
@@ -11,22 +14,114 @@ from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
 
-app = FastAPI()
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 RENDER_URL = "https://saucefinder-ai.onrender.com"
 
-# Global video mapping (Memory + Fallback)
 DEFAULT_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
+
+# Global Live Database
 VIDEO_DATABASE = {
     "raja": DEFAULT_STREAM,
     "rohit": DEFAULT_STREAM,
     "latest": DEFAULT_STREAM
 }
+
+# In-memory registry of newly discovered Instagram models
+DISCOVERED_INSTA_MODELS = set()
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+
+def discover_instagram_models_from_comments():
+    """Scrapes public indexed Instagram reel discussions, viral sauce comments and tags"""
+    found_names = set()
+    queries = [
+        'site:instagram.com/reel "who is she" OR "sauce" OR "model name"',
+        'site:instagram.com/p "who is she" OR "id please"',
+        '"name in comments" site:instagram.com reels'
+    ]
+    for q in queries:
+        try:
+            url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(q)}"
+            res = requests.get(url, headers=HEADERS, timeout=5)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            for a in soup.find_all('a', class_='result__snippet') + soup.find_all('a', class_='result__url'):
+                text = a.get_text()
+                # Find @handles or explicit model mentions in snippet comments
+                handles = re.findall(r'@([a-zA-Z0-9_\.]{3,25})', text)
+                for h in handles:
+                    clean_h = h.lower().strip('.')
+                    if clean_h not in ['instagram', 'reels', 'explore', 'viral', 'p', 'reel']:
+                        found_names.add(clean_h)
+                
+                # Also find name patterns after "name:" or "model:"
+                name_matches = re.findall(r'(?:name|model|id|sauce)\s*[:=\-]\s*([A-Za-z0-9_]{3,20})', text, re.I)
+                for nm in name_matches:
+                    clean_nm = nm.lower().strip()
+                    if clean_nm not in ['link', 'bio', 'comment', 'here', 'please']:
+                        found_names.add(clean_nm)
+        except Exception as e:
+            print(f"[INSTA DISCOVERY NOTICE] Query error: {e}")
+    return list(found_names)
+
+async def autonomous_instagram_daemon():
+    """Continuous background worker: Crawls Instagram comments/reels, indexes creators, maps streams"""
+    print("[AUTONOMOUS INSTA WORKER] Instagram Comment & Sauce Harvester Online!")
+    while True:
+        try:
+            new_creators = discover_instagram_models_from_comments()
+            print(f"[AUTONOMOUS INSTA WORKER] Discovered {len(new_creators)} potential creators from Instagram comments.")
+            
+            for creator in new_creators[:8]:  # Process batch of discovered models
+                clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator.lower())
+                if clean_tag not in VIDEO_DATABASE:
+                    DISCOVERED_INSTA_MODELS.add(clean_tag)
+                    
+                    # Search stream preview link for discovered model
+                    q = f"{clean_tag} reel clip video mp4 stream"
+                    stream_url = DEFAULT_STREAM
+                    try:
+                        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(q)}"
+                        r = requests.get(q_url, headers=HEADERS, timeout=4)
+                        s = BeautifulSoup(r.text, 'html.parser')
+                        for link_tag in s.find_all('a', href=True):
+                            link = link_tag['href']
+                            if any(ext in link.lower() for ext in ['.mp4', 'stream', 'preview']):
+                                stream_url = link
+                                break
+                    except Exception:
+                        pass
+                    
+                    VIDEO_DATABASE[clean_tag] = stream_url
+                    print(f"[INSTA AUTO-INGESTED] Added @{clean_tag} to Live Video Database!")
+                await asyncio.sleep(2)
+        except Exception as e:
+            print(f"[INSTA DAEMON ERROR] {e}")
+
+        # Re-scan Instagram trends and comments every 30 minutes
+        await asyncio.sleep(1800)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Setup Telegram Webhook
+    webhook_url = f"{RENDER_URL}/tg_webhook"
+    api_url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setWebhook?url={webhook_url}"
+    try:
+        res = requests.get(api_url, timeout=5)
+        print(f"Telegram Webhook Status: {res.json().get('description')}")
+    except Exception as e:
+        print(f"Webhook notice: {e}")
+
+    # Launch Instagram Comment Auto-Discoverer
+    asyncio.create_task(autonomous_instagram_daemon())
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "dpx14q6om"),
@@ -35,24 +130,8 @@ cloudinary.config(
     secure=True
 )
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-}
-
-@app.on_event("startup")
-def setup_webhook():
-    """Register official Telegram Webhook automatically on deployment"""
-    webhook_url = f"{RENDER_URL}/tg_webhook"
-    api_url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setWebhook?url={webhook_url}"
-    try:
-        res = requests.get(api_url, timeout=10)
-        print(f"Telegram Webhook Registration: {res.json()}")
-    except Exception as e:
-        print(f"Webhook setup warning: {e}")
-
 @app.post("/tg_webhook")
 async def telegram_webhook(req: Request):
-    """Direct push handler: Telegram hits this endpoint the exact second a video is sent"""
     try:
         data = await req.json()
         message = data.get("message") or data.get("channel_post")
@@ -65,29 +144,20 @@ async def telegram_webhook(req: Request):
 
         if video:
             file_id = video.get("file_id")
-            # Fetch direct download URL from Telegram API
             f_info = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
             if f_info.get("ok"):
                 f_path = f_info["result"]["file_path"]
                 direct_file_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
-                
                 VIDEO_DATABASE[tag] = direct_file_url
                 VIDEO_DATABASE["latest"] = direct_file_url
-                if tag != "raja":
-                    VIDEO_DATABASE["raja"] = direct_file_url
-                print(f"[WEBHOOK SYNC SUCCESS] Key #{tag} successfully bound to: {direct_file_url}")
-                
-                # Send confirmation back to Telegram
-                chat_id = message["chat"]["id"]
-                confirm_txt = f"✅ Video Linked!\nTag: #{tag}\nReady on SauceFinder site."
-                requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(confirm_txt)}")
+                print(f"[TELEGRAM LIVE SYNC] Auto-bound incoming video to #{tag}")
     except Exception as e:
-        print(f"Webhook processing error: {e}")
+        print(f"Webhook notice: {e}")
     return JSONResponse({"status": "ok"})
 
 def reverse_image_recognize(image_url: str) -> str:
     try:
-        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' model performer actress')}"
+        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' instagram model performer')}"
         res = requests.get(q_url, headers=HEADERS, timeout=3)
         soup = BeautifulSoup(res.text, 'html.parser')
         for item in soup.find_all('div', class_='result__body')[:3]:
@@ -99,14 +169,14 @@ def reverse_image_recognize(image_url: str) -> str:
                     return f"{words[0]} {words[1]}".title()
     except Exception:
         pass
-    return "Verified Creator"
+    return "Trending Model"
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Webhook Fast Stream</title>
+<title>SauceFinder Pro — Autonomous Instagram & Video Harvester</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -240,7 +310,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Telegram Webhook Live Engine</div>
+    <div class="sub">Autonomous Instagram Sauce & Video Harvester</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -262,7 +332,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Raja, Rohit, Alyx Star">
+                <input type="text" name="keyword_name" placeholder="e.g. @model_handle, Raja, Rohit">
             </div>
 
             <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
@@ -401,7 +471,7 @@ async def scan(
     keyword_name: Optional[str] = Form(None)
 ):
     target_img_display = ""
-    creator_name = "Verified Creator"
+    creator_name = "Trending Creator"
 
     if image_file and image_file.filename:
         save_path = os.path.join(UPLOAD_DIR, image_file.filename)
@@ -422,7 +492,7 @@ async def scan(
         creator_name = reverse_image_recognize(target_img_display)
 
     elif keyword_name and keyword_name.strip():
-        creator_name = keyword_name.strip().title()
+        creator_name = keyword_name.strip()
         clean_encoded = urllib.parse.quote(creator_name)
         target_img_display = f"https://ui-avatars.com/api/?name={clean_encoded}&background=0284c7&color=fff&size=256&bold=true"
 
@@ -430,18 +500,19 @@ async def scan(
         return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", "<p style='color:#ef4444; margin-top:15px; font-size:13px;'>Please provide input.</p>"))
 
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator_name).lower()
-    insta_url = f"https://www.instagram.com/explore/tags/{clean_tag}/"
+    insta_url = f"https://www.instagram.com/{clean_tag}/" if clean_tag.startswith("@") or clean_tag in DISCOVERED_INSTA_MODELS else f"https://www.instagram.com/explore/tags/{clean_tag}/"
     twitter_url = f"https://x.com/search?q={urllib.parse.quote(creator_name)}"
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
     stream_internal_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or DEFAULT_STREAM
+    source_badge = "● Instagram Viral Match" if clean_tag in DISCOVERED_INSTA_MODELS else "● Active Verified Stream"
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="{creator_name}">
-        <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Active Stream Linked: #{clean_tag}</div>
+        <div class="name">{creator_name.title()}</div>
+        <div class="aliases-sub">Indexed from Instagram: @{clean_tag}</div>
 
         <div class="links-gate-box" id="linksGateCard">
             <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
@@ -454,7 +525,7 @@ async def scan(
 
         <div class="of-vip-banner">
             <div class="of-text">
-                <div class="of-vip-title">👑 Unlock {creator_name} OnlyFans Vault</div>
+                <div class="of-vip-title">👑 Unlock @{clean_tag} OnlyFans Vault</div>
                 <div class="of-vip-sub">Full uncut videos & private HD stream archive</div>
             </div>
             <button type="button" class="btn-of-unlock" onclick="openVipModal()">Get VIP (₹99/Yr)</button>
@@ -463,7 +534,7 @@ async def scan(
         <div class="links-unlocked" id="linksVault">
             <div style="font-size:11px; font-weight:700; color:#22c55e; text-transform:uppercase; margin-bottom:6px;">● Direct Web Stream Mirrors (In-Page)</div>
             <div class="match-item" onclick="playInPageVideo('{stream_internal_url}')">
-                <span class="match-title">▶ Play Full Web Stream Mirror ({creator_name})</span>
+                <span class="match-title">▶ Play Full Web Stream Mirror (@{clean_tag})</span>
                 <span class="badge-source badge-stream">[Play On Page] ↗</span>
             </div>
             <a href="https://www.reddit.com/r/tipofmypenis/search/?q={urllib.parse.quote(creator_name)}" target="_blank" class="match-item">
@@ -475,13 +546,13 @@ async def scan(
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
-                <span style="font-size:11px; color:#22c55e; font-weight:800;">● Telegram Webhook Live</span>
+                <span style="font-size:11px; color:#22c55e; font-weight:800;">{source_badge}</span>
             </div>
 
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Live Preview Stream</div>
-                    <div class="tier-sub">Zero buffer • Live HTTP stream</div>
+                    <div class="tier-sub">Zero buffer • Live autonomous stream</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
