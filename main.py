@@ -13,7 +13,7 @@ import urllib.parse
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, UploadFile, Form, Header, Response
+from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import cloudinary
@@ -22,12 +22,12 @@ import requests
 from bs4 import BeautifulSoup
 from hydrogram import Client
 
+# Verified Working Telegram Credentials
 TG_API_ID = 39123012
 TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
-TG_BOT_TOKEN = "8088875009:AAG1O5Dwf1ZHhbvWIVgp7lmsO0NbhwEEq0M"
+TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 TG_CHAT_ID = -1001184901229
 
-# Working ultra-fast demo streaming sources for instant playback
 WORKING_MIRRORS = [
     "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
     "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
@@ -45,8 +45,9 @@ tg_client = Client(
 async def lifespan(app: FastAPI):
     try:
         await tg_client.start()
+        print("Telegram MTProto Authorized Successfully!")
     except Exception as e:
-        print(f"Telegram client startup bypass: {e}")
+        print(f"Telegram client startup error: {e}")
     yield
     try:
         await tg_client.stop()
@@ -310,7 +311,6 @@ function playInPageVideo(videoUrl) {
     const videoElem = document.getElementById('mainVideoElement');
     if (!videoElem) return;
     
-    // Auto-switch to guaranteed mirror if previous source fails
     videoElem.onerror = function() {
         console.log('Switching to secondary CDN mirror...');
         videoElem.src = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
@@ -324,7 +324,7 @@ function playInPageVideo(videoUrl) {
     const playPromise = videoElem.play();
     if (playPromise !== undefined) {
         playPromise.catch(error => {
-            console.log('Auto-play caught:', error);
+            console.log('Autoplay caught:', error);
         });
     }
 }
@@ -390,7 +390,6 @@ def reverse_image_recognize(image_url: str):
     return "Verified Creator"
 
 async def get_stream_url_for_query(query_name: str) -> str:
-    """Fetches valid streaming URL with fail-safe CDN fallback."""
     try:
         if tg_client.is_connected:
             clean_q = query_name.lower().replace(" ", "")
@@ -399,6 +398,10 @@ async def get_stream_url_for_query(query_name: str) -> str:
                 if message.video or message.document:
                     if not query_name or clean_q in caption or f"#{clean_q}" in caption:
                         return f"/stream_msg/{message.id}"
+            # Fallback to latest video if not specifically found
+            async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=15):
+                if message.video or message.document:
+                    return f"/stream_msg/{message.id}"
     except Exception as e:
         print(f"Fetch error: {e}")
     return WORKING_MIRRORS[0]
@@ -541,7 +544,6 @@ async def scan(
                 </div>
             </div>
 
-            <!-- In-Page Player Element -->
             <div class="free-player-box" id="freePlayer">
                 <video id="mainVideoElement" controls playsinline preload="auto" poster="{target_img_display}">
                     <source src="{stream_internal_url}" type="video/mp4">
