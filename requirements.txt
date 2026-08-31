@@ -4,3 +4,5 @@ python-multipart
 cloudinary
 requests
 beautifulsoup4
+pyrogram
+tgcrypto
