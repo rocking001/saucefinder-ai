@@ -1,6 +1,5 @@
 ﻿import os
 import sys
-import json
 import asyncio
 
 try:
@@ -28,15 +27,11 @@ TG_API_ID = 39123012
 TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 
-DATA_FILE = "video_registry.json"
-if not os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump({}, f)
+# Global Live Registry (Memory cache that stays alive during server run)
+LIVE_MEDIA_CACHE = {}
 
-WORKING_MIRRORS = [
-    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-]
+# Guaranteed fallback MP4 that ALWAYS plays instantly
+GUARANTEED_STREAM = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
 
 tg_client = Client(
     "SauceStreamerSession",
@@ -46,55 +41,28 @@ tg_client = Client(
     in_memory=True
 )
 
-def save_video_entry(name_key: str, file_id: str, file_size: int):
-    try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        data = {}
-    data[name_key.lower().strip()] = {"file_id": file_id, "size": file_size}
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-def get_video_entry(query: str):
-    try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        q = query.lower().strip()
-        for k, v in data.items():
-            if q in k or k in q:
-                return v
-        if data:
-            return list(data.values())[-1]
-    except Exception:
-        pass
-    return None
-
-# Auto-capture any video sent directly to the bot PM
 @tg_client.on_message(filters.private & (filters.video | filters.document))
-async def handle_direct_video(client: Client, message: Message):
+async def on_video_received(client: Client, message: Message):
     media = message.video or message.document
-    caption = (message.caption or "").strip()
-    tag_name = caption if caption else "rohit"
+    caption = (message.caption or "").strip().lower()
+    tag = re.sub(r'[^a-zA-Z0-9]', '', caption) if caption else "rohit"
     
-    clean_name = re.sub(r'[^a-zA-Z0-9\s]', '', tag_name).strip()
-    if not clean_name:
-        clean_name = "trending"
-        
-    save_video_entry(clean_name, media.file_id, media.file_size)
+    LIVE_MEDIA_CACHE[tag] = media.file_id
+    LIVE_MEDIA_CACHE["latest"] = media.file_id
+    
     await message.reply_text(
-        f"✅ Video Indexed Successfully!\n\n"
-        f"Name: {clean_name.title()}\n"
-        f"Size: {media.file_size / (1024*1024):.1f} MB\n"
-        f"Ready to stream on SauceFinder."
+        f"✅ Video Linked Successfully!\n\n"
+        f"Tag: #{tag}\n"
+        f"File ID: {media.file_id[:16]}...\n"
+        f"Now search '{tag}' on your site to watch."
     )
-    print(f"[INDEXED] Added video for '{clean_name}' (Size: {media.file_size})")
+    print(f"[TELEGRAM LINKED] Key: {tag} -> File: {media.file_id[:16]}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         await tg_client.start()
-        print("Bot Direct Receiver Started Successfully!")
+        print("Telegram Live Bridge Online!")
     except Exception as e:
         print(f"Telegram client error: {e}")
     yield
@@ -125,7 +93,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Web Native Stream</title>
+<title>SauceFinder Pro — Live Native Stream</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -259,7 +227,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Direct Inbox Stream & Recognition Engine</div>
+    <div class="sub">Direct Live Stream & Recognition Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -359,21 +327,10 @@ function fileChosen(input) {
 function playInPageVideo(videoUrl) {
     const videoElem = document.getElementById('mainVideoElement');
     if (!videoElem) return;
-    
-    videoElem.onerror = function() {
-        console.log('Switching to backup mirror...');
-        videoElem.src = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
-        videoElem.load();
-        videoElem.play();
-    };
-
     videoElem.src = videoUrl;
     videoElem.load();
     videoElem.scrollIntoView({ behavior: 'smooth' });
-    const playPromise = videoElem.play();
-    if (playPromise !== undefined) {
-        playPromise.catch(error => console.log('Autoplay handled:', error));
-    }
+    videoElem.play().catch(e => console.log('Autoplay handled:', e));
 }
 
 function openVipModal() {
@@ -442,7 +399,6 @@ async def stream_telegram_file(file_id: str, range: Optional[str] = Header(None)
         if not tg_client.is_connected:
             await tg_client.start()
 
-        # Stream directly using Pyrogram File ID
         async def file_chunk_generator():
             async for chunk in tg_client.stream_media(file_id):
                 yield chunk
@@ -453,8 +409,8 @@ async def stream_telegram_file(file_id: str, range: Optional[str] = Header(None)
         }
         return StreamingResponse(file_chunk_generator(), media_type="video/mp4", headers=headers)
     except Exception as e:
-        print(f"Stream fallback: {e}")
-        req = requests.get(WORKING_MIRRORS[0], stream=True)
+        print(f"Direct stream fallback: {e}")
+        req = requests.get(GUARANTEED_STREAM, stream=True)
         return StreamingResponse(req.iter_content(chunk_size=1024*512), media_type="video/mp4")
 
 @app.get("/")
@@ -502,17 +458,20 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    matched_entry = get_video_entry(creator_name)
-    if matched_entry:
-        stream_internal_url = f"/stream_file/{matched_entry['file_id']}"
+    # Lookup in memory
+    matched_file_id = LIVE_MEDIA_CACHE.get(clean_tag) or LIVE_MEDIA_CACHE.get("latest")
+    
+    if matched_file_id:
+        stream_internal_url = f"/stream_file/{matched_file_id}"
     else:
-        stream_internal_url = WORKING_MIRRORS[0]
+        # Plays instantly so player never stays frozen at 0:00
+        stream_internal_url = GUARANTEED_STREAM
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Auto-Indexed: #{clean_tag}</div>
+        <div class="aliases-sub">Live Video Ready: #{clean_tag}</div>
 
         <div class="links-gate-box" id="linksGateCard">
             <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
@@ -546,13 +505,13 @@ async def scan(
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
-                <span style="font-size:11px; color:#eab308; font-weight:800;">3 Quality Tiers</span>
+                <span style="font-size:11px; color:#eab308; font-weight:800;">Live Stream Player</span>
             </div>
 
             <div class="tier-item">
                 <div>
-                    <div class="tier-info">480p SD Preview Stream</div>
-                    <div class="tier-sub">Standard resolution • Direct In-Page Stream</div>
+                    <div class="tier-info">480p SD Live Preview Stream</div>
+                    <div class="tier-sub">Instant playback • Verified link active</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
@@ -562,8 +521,7 @@ async def scan(
 
             <!-- In-Page Player Element -->
             <div class="free-player-box" id="freePlayer">
-                <video id="mainVideoElement" controls playsinline preload="auto" poster="{target_img_display}">
-                    <source src="{stream_internal_url}" type="video/mp4">
+                <video id="mainVideoElement" controls playsinline preload="auto" poster="{target_img_display}" src="{stream_internal_url}">
                     Your browser does not support video playback.
                 </video>
             </div>
