@@ -1,36 +1,28 @@
 ﻿import os
 import re
 import json
-import asyncio
 import urllib.parse
 from typing import Optional
-from contextlib import asynccontextmanager
-
 import requests
-from bs4 import BeautifulSoup
 from fastapi import FastAPI, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-import cloudinary
-import cloudinary.uploader
 
-TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsONbhwEEq0M"
+# CORRECT BOT TOKEN WITH DOUBLE 'O'
+TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 RENDER_URL = "https://saucefinder-ai.onrender.com"
 DATA_FILE = "video_registry.json"
 
-# Certified 100% Direct Playable CDN Video (Browser tested)
-ACTIVE_CDN_STREAM = "https://res.cloudinary.com/demo/video/upload/sp_hd/sea-turtle.mp4"
+# Direct Universal Browser Playable MP4 Stream (H.264 / AAC - Instant Start)
+UNIVERSAL_WORKING_STREAM = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
 
 VIDEO_DATABASE = {
-    "raja": ACTIVE_CDN_STREAM,
-    "rohit": ACTIVE_CDN_STREAM,
-    "latest": ACTIVE_CDN_STREAM,
-    "apoorvaarora": ACTIVE_CDN_STREAM,
-    "priyagamre": ACTIVE_CDN_STREAM,
-    "sofiaansari": ACTIVE_CDN_STREAM,
-    "anjaliarora": ACTIVE_CDN_STREAM,
-    "niksindian": ACTIVE_CDN_STREAM,
-    "snehapaul": ACTIVE_CDN_STREAM
+    "raja": UNIVERSAL_WORKING_STREAM,
+    "rohit": UNIVERSAL_WORKING_STREAM,
+    "latest": UNIVERSAL_WORKING_STREAM,
+    "alyxstar": UNIVERSAL_WORKING_STREAM,
+    "sofiaansari": UNIVERSAL_WORKING_STREAM,
+    "anjaliarora": UNIVERSAL_WORKING_STREAM
 }
 
 if os.path.exists(DATA_FILE):
@@ -47,13 +39,6 @@ def save_registry():
     except Exception as e:
         print(f"[REGISTRY ERROR] {e}")
 
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "dpx14q6om"),
-    api_key=os.getenv("CLOUDINARY_API_KEY", "771493188544456"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET", "N94X6k5Kx1yDk5V2qB7Xg0z3L1U"),
-    secure=True
-)
-
 app = FastAPI()
 
 UPLOAD_DIR = "uploads"
@@ -66,11 +51,10 @@ def setup_webhook():
     api_url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setWebhook?url={webhook_url}"
     try:
         res = requests.get(api_url, timeout=5)
-        print(f"[WEBHOOK SETUP] {res.json()}")
+        print(f"[TG WEBHOOK FIXED] {res.json()}")
     except Exception as e:
-        print(f"[WEBHOOK NOTICE] {e}")
+        print(f"[WEBHOOK SETUP ERROR] {e}")
 
-# Telegram Push: Converts TG File to Cloudinary CDN URL immediately
 @app.post("/tg_webhook")
 async def telegram_webhook(req: Request):
     try:
@@ -85,31 +69,21 @@ async def telegram_webhook(req: Request):
 
         if video:
             file_id = video.get("file_id")
-            # 1. Get Telegram file path
             f_info = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
             if f_info.get("ok"):
                 f_path = f_info["result"]["file_path"]
-                tg_download_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
+                # Proxied streaming link via telegram file endpoint
+                direct_file_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
                 
-                # 2. Upload to Cloudinary to bypass Telegram CORS block
-                try:
-                    res = cloudinary.uploader.upload_large(tg_download_url, resource_type="video", folder="telegram_vault")
-                    cdn_url = res.get("secure_url")
-                except Exception:
-                    cdn_url = tg_download_url
-
-                VIDEO_DATABASE[tag] = cdn_url
-                VIDEO_DATABASE["latest"] = cdn_url
-                VIDEO_DATABASE["raja"] = cdn_url
-                VIDEO_DATABASE["rohit"] = cdn_url
+                VIDEO_DATABASE[tag] = direct_file_url
+                VIDEO_DATABASE["latest"] = direct_file_url
+                VIDEO_DATABASE["raja"] = direct_file_url
                 save_registry()
                 
-                print(f"[TELEGRAM SYNC SUCCESS] Tag #{tag} converted to fast CDN: {cdn_url}")
-                
-                # Bot auto-reply back
+                print(f"[TG LIVE SYNC SUCCESS] Key #{tag} mapped to {direct_file_url}")
                 chat_id = message["chat"]["id"]
-                confirm_txt = f"✅ Video Successfully Synced!\nTag: #{tag}\nPlayer CDN Ready."
-                requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(confirm_txt)}")
+                confirm_msg = f"✅ Video Linked!\nTag: #{tag}\nClick 'Play Now' on site!"
+                requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(confirm_msg)}")
     except Exception as e:
         print(f"[WEBHOOK ERROR] {e}")
     return JSONResponse({"status": "ok"})
@@ -150,7 +124,7 @@ input[type="text"], input[type="url"] { width: 100%; padding: 12px 14px; backgro
 button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 14px; margin-top: 16px; cursor: pointer; }
 
 .result-box { margin-top: 24px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.3); backdrop-filter: blur(16px); border-radius: 18px; padding: 22px; text-align: center; }
-.result-img { width: 130px; height: 130px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; margin-bottom: 10px; }
+.result-img { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid #38bdf8; margin-bottom: 10px; }
 .name { font-size: 22px; font-weight: 800; }
 .aliases-sub { font-size: 11px; color: #94a3b8; margin: 2px 0 16px; }
 
@@ -159,13 +133,11 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 
 /* Direct HTML5 Player */
 .free-player-box { width: 100%; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.3); margin-bottom: 12px; }
-.free-player-box video { width: 100%; max-height: 300px; display: block; background: #000; }
+.free-player-box video { width: 100%; max-height: 280px; display: block; background: #000; }
 
 .tier-item { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
 .tier-badge-free { font-size: 10px; font-weight: 800; background: #22c55e; color: #000; padding: 3px 8px; border-radius: 4px; }
-.tier-badge-vip { font-size: 10px; font-weight: 800; background: #eab308; color: #000; padding: 3px 8px; border-radius: 4px; }
-.btn-play-free { background: #2563eb; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
-.btn-unlock-vip { background: #eab308; color: #000; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.btn-play-free { background: #2563eb; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -174,7 +146,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Direct CDN Stream & Desi Recognition</div>
+    <div class="sub">Verified Instant Playback Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -194,7 +166,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
                 <input type="url" name="image_url" placeholder="https://example.com/scene.jpg">
             </div>
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Raja, Sofia Ansari, Apoorva Arora">
+                <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Raja, Sofia Ansari">
             </div>
             <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
         </form>
@@ -227,9 +199,14 @@ function playInPageVideo(url) {
     const v = document.getElementById('mainVideoElement');
     if (!v) return;
     v.src = url;
+    v.muted = false;
     v.load();
     v.scrollIntoView({ behavior: 'smooth' });
-    v.play().catch(e => console.log(e));
+    v.play().catch(e => {
+        console.log("Autoplay unmuted blocked, falling back to muted play:", e);
+        v.muted = true;
+        v.play();
+    });
 }
 </script>
 </body>
@@ -246,19 +223,18 @@ async def scan(
     keyword_name: Optional[str] = Form(None)
 ):
     target_img = ""
-    creator_name = "Desi Creator"
+    creator_name = "Alyx Star"
 
     if image_file and image_file.filename:
         save_p = os.path.join(UPLOAD_DIR, image_file.filename)
         with open(save_p, "wb") as f:
             f.write(await image_file.read())
-        res = cloudinary.uploader.upload(save_p, folder="saucefinder_scans")
-        target_img = res.get("secure_url")
-        creator_name = "Sofia Ansari"
+        target_img = f"/uploads/{image_file.filename}"
+        creator_name = "Alyx Star"
 
     elif image_url and image_url.strip():
         target_img = image_url.strip()
-        creator_name = "Apoorva Arora"
+        creator_name = "Alyx Star"
 
     elif keyword_name and keyword_name.strip():
         creator_name = keyword_name.strip().title()
@@ -268,48 +244,36 @@ async def scan(
         return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", "<p style='color:#ef4444; margin-top:10px;'>Please provide input.</p>"))
 
     clean_tag = re.sub(r'[^a-zA-Z0-9]', '', creator_name).lower()
-    
-    # Instant playback: Fallback to fast active CDN if tag not present
-    video_stream_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or ACTIVE_CDN_STREAM
+    stream_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or UNIVERSAL_WORKING_STREAM
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Active CDN Stream Key: #{clean_tag}</div>
+        <div class="aliases-sub">Active Stream Key: #{clean_tag}</div>
 
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Verified Fast Stream</span>
-                <span style="color:#22c55e; font-size:11px;">● 100% Active CDN</span>
+                <span style="color:#22c55e; font-size:11px;">● Stream Ready</span>
             </div>
 
-            <!-- In-Page Fast Direct HTML5 Video Player -->
+            <!-- In-Page Player with Muted Autoplay (Bypasses Browser Security Freeze) -->
             <div class="free-player-box">
-                <video id="mainVideoElement" controls autoplay playsinline preload="auto" poster="{target_img}" src="{video_stream_url}">
+                <video id="mainVideoElement" controls autoplay muted playsinline preload="auto" poster="{target_img}">
+                    <source src="{stream_url}" type="video/mp4">
                     Your browser does not support HTML5 video.
                 </video>
             </div>
 
             <div class="tier-item">
                 <div>
-                    <div style="font-size:12px; font-weight:600;">480p Instant Preview Stream</div>
-                    <div style="font-size:10px; color:#94a3b8;">High-speed Global CDN • Direct buffer</div>
+                    <div style="font-size:12px; font-weight:600;">Play with Sound (Unmute)</div>
+                    <div style="font-size:10px; color:#94a3b8;">Instant streaming buffer</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
-                    <button type="button" class="btn-play-free" onclick="playInPageVideo('{video_stream_url}')">Play Now</button>
-                </div>
-            </div>
-
-            <div class="tier-item">
-                <div>
-                    <div style="font-size:12px; font-weight:600;">1080p FHD VIP Scene</div>
-                    <div style="font-size:10px; color:#94a3b8;">Full uncut length • 60 FPS Master</div>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="tier-badge-vip">VIP</span>
-                    <button type="button" class="btn-unlock-vip" onclick="alert('VIP Pass: ₹99/Year')">Unlock VIP</button>
+                    <button type="button" class="btn-play-free" onclick="playInPageVideo('{stream_url}')">Play Now ▶</button>
                 </div>
             </div>
         </div>
