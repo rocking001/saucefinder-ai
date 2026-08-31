@@ -1,29 +1,80 @@
 ﻿import os
+import sys
+import asyncio
+
+try:
+    loop = asyncio.get_event_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
 import re
-import json
 import urllib.parse
 from typing import Optional
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
 import requests
 from bs4 import BeautifulSoup
+from hydrogram import Client, filters
+from hydrogram.types import Message
 
-app = FastAPI()
+# Telegram Credentials
+TG_API_ID = 39123012
+TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
+TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
+TG_CHANNEL_ID = -1001184901229
+
+# Dynamic Storage
+TELEGRAM_VAULT = {}
+DEFAULT_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
+
+tg_client = Client(
+    "SauceStreamerSession",
+    api_id=TG_API_ID,
+    api_hash=TG_API_HASH,
+    bot_token=TG_BOT_TOKEN,
+    in_memory=True
+)
+
+# Engine 2: Auto-Sync Listener for Channel & DMs
+@tg_client.on_message((filters.chat(TG_CHANNEL_ID) | filters.private) & (filters.video | filters.document))
+async def auto_sync_telegram(client: Client, message: Message):
+    media = message.video or message.document
+    caption = (message.caption or "").strip().lower()
+    tag = re.sub(r'[^a-zA-Z0-9]', '', caption) if caption else "rohit"
+    
+    TELEGRAM_VAULT[tag] = media.file_id
+    TELEGRAM_VAULT["latest"] = media.file_id
+    print(f"[AUTO-SYNC] Telegram channel video mapped for tag: #{tag}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        await tg_client.start()
+        print("Telegram Auto-Sync Engine Active!")
+    except Exception as e:
+        print(f"Telegram start notice: {e}")
+    yield
+    try:
+        await tg_client.stop()
+    except Exception:
+        pass
+
+app = FastAPI(lifespan=lifespan)
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-DATA_FILE = "video_registry.json"
-
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "dpx14q6om"),
     api_key=os.getenv("CLOUDINARY_API_KEY", "771493188544456"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET", "N94X6k5Kx1yDk5V2qB7Xg0z3L1U"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
     secure=True
 )
 
@@ -31,30 +82,46 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-ACTIVE_FALLBACK = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
-
-def load_registry():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
-
-def save_registry(data):
+# Engine 1: Autonomous Web Video Crawler
+def crawl_web_stream(query_name: str) -> str:
+    """Crawls active public adult/tube indexes for instant playable previews."""
     try:
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        search_query = f"{query_name} scene trailer video stream"
+        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(search_query)}"
+        res = requests.get(q_url, headers=HEADERS, timeout=5)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag['href']
+            # Direct video links extractor
+            if any(ext in href.lower() for ext in ['.mp4', '.m3u8', 'video_preview']):
+                return href
     except Exception as e:
-        print(f"Save error: {e}")
+        print(f"Crawler notice: {e}")
+    return DEFAULT_STREAM
+
+def reverse_image_recognize(image_url: str) -> str:
+    try:
+        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' model performer actress')}"
+        res = requests.get(q_url, headers=HEADERS, timeout=6)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        for item in soup.find_all('div', class_='result__body')[:4]:
+            t_tag = item.find('a', class_='result__title')
+            if t_tag:
+                cleaned = re.sub(r'[^a-zA-Z\s]', '', t_tag.text.strip())
+                words = cleaned.split()
+                if len(words) >= 2 and words[0].lower() not in ['http', 'https', 'www']:
+                    return f"{words[0]} {words[1]}".title()
+    except Exception:
+        pass
+    return "Verified Performer"
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Direct Stream Engine</title>
+<title>SauceFinder Pro — Autonomous Dual Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -166,17 +233,13 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .btn-play-free { background: #2563eb; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .btn-unlock-vip { background: #eab308; color: #000; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
 
-/* In-Page Video Player */
+/* In-Page Player */
 .free-player-box { display: block; margin-top: 12px; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.2); }
 .free-player-box video { width: 100%; max-height: 280px; display: block; background: #000; }
 
 .card-head { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; text-align: left; }
 .links-wrap { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .btn-social { flex: 1; min-width: 80px; background: rgba(30, 41, 59, 0.6); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); padding: 8px 6px; border-radius: 7px; text-decoration: none; font-size: 11px; font-weight: 600; text-align: center; }
-
-/* Uploader Bar */
-.uploader-box { margin-top: 20px; padding: 14px; background: rgba(3, 7, 18, 0.5); border-radius: 12px; border: 1px dashed rgba(56, 189, 248, 0.25); text-align: left; }
-.uploader-box h4 { font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 8px; text-transform: uppercase; }
 
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 999; align-items: center; justify-content: center; padding: 16px; }
 .modal-overlay.active { display: flex; }
@@ -192,7 +255,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Ultra-Fast CDN Stream & Visual Recognition</div>
+    <div class="sub">Autonomous Crawler & Live Telegram Bridge</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -214,20 +277,11 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Rohit, Niks Indian, Alyx Star">
+                <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Rohit, Niks Indian">
             </div>
 
             <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
         </form>
-
-        <div class="uploader-box">
-            <h4>Direct Video Uploader (Instant Link)</h4>
-            <form action="/upload_video" method="POST" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px;">
-                <input type="text" name="video_tag" placeholder="Tag / Creator Name (e.g. Rohit)" required>
-                <input type="file" name="video_file" id="vFileInput" accept="video/*" required style="display:block; font-size:12px; color:#94a3b8;">
-                <button type="submit" style="background:#0284c7; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer;">Upload Video To CDN</button>
-            </form>
-        </div>
     </div>
 
     _RESULT_PLACEHOLDER_
@@ -351,56 +405,22 @@ function closeModal(id) {
 </body>
 </html>"""
 
-def reverse_image_recognize(image_url: str):
+@app.get("/stream_tg/{file_id}")
+async def stream_telegram_direct(file_id: str):
     try:
-        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' model performer actress')}"
-        res = requests.get(q_url, headers=HEADERS, timeout=8)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        for item in soup.find_all('div', class_='result__body')[:4]:
-            t_tag = item.find('a', class_='result__title')
-            if t_tag:
-                cleaned = re.sub(r'[^a-zA-Z\s]', '', t_tag.text.strip())
-                words = cleaned.split()
-                if len(words) >= 2 and words[0].lower() not in ['http', 'https', 'www']:
-                    return f"{words[0]} {words[1]}".title()
+        if not tg_client.is_connected:
+            await tg_client.start()
+        async def file_chunks():
+            async for chunk in tg_client.stream_media(file_id):
+                yield chunk
+        return StreamingResponse(file_chunks(), media_type="video/mp4")
     except Exception:
-        pass
-    return "Verified Creator"
+        req = requests.get(DEFAULT_STREAM, stream=True)
+        return StreamingResponse(req.iter_content(chunk_size=1024*512), media_type="video/mp4")
 
 @app.get("/")
 def index():
     return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", ""))
-
-@app.post("/upload_video")
-async def upload_direct_video(video_tag: str = Form(...), video_file: UploadFile = File(...)):
-    tag = re.sub(r'[^a-zA-Z0-9]', '', video_tag.lower()).strip()
-    if not tag:
-        tag = "rohit"
-
-    temp_path = os.path.join(UPLOAD_DIR, video_file.filename)
-    with open(temp_path, "wb") as f:
-        f.write(await video_file.read())
-
-    # Direct CDN upload for high performance
-    res = cloudinary.uploader.upload_large(temp_path, resource_type="video", folder="saucefinder_videos")
-    cdn_video_url = res.get("secure_url")
-
-    if os.path.exists(temp_path):
-        os.remove(temp_path)
-
-    registry = load_registry()
-    registry[tag] = cdn_video_url
-    registry["latest"] = cdn_video_url
-    save_registry(registry)
-
-    return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", f"""
-        <div style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; border-radius:12px; padding:16px; margin-top:20px; color:#f8fafc; text-align:center;">
-            <h3 style="color:#22c55e; margin-bottom:4px;">✅ Video Successfully Linked!</h3>
-            <p style="font-size:12px; color:#cbd5e1;">Tag: <strong>#{tag}</strong></p>
-            <p style="font-size:11px; color:#94a3b8; margin:8px 0;">Video CDN Ready: {cdn_video_url}</p>
-            <a href="/" style="display:inline-block; margin-top:8px; background:#2563eb; color:#fff; text-decoration:none; padding:8px 16px; border-radius:8px; font-weight:700; font-size:12px;">Go Back & Search #{tag}</a>
-        </div>
-    """))
 
 @app.post("/scan")
 async def scan(
@@ -443,14 +463,23 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    registry = load_registry()
-    stream_internal_url = registry.get(clean_tag) or registry.get("latest") or ACTIVE_FALLBACK
+    # Auto Decision: Priority 1 = Telegram Vault (If posted) | Priority 2 = Automated Web Crawler
+    if clean_tag in TELEGRAM_VAULT:
+        stream_internal_url = f"/stream_tg/{TELEGRAM_VAULT[clean_tag]}"
+        source_label = "● Telegram Vault Synced"
+    elif "latest" in TELEGRAM_VAULT:
+        stream_internal_url = f"/stream_tg/{TELEGRAM_VAULT['latest']}"
+        source_label = "● Telegram Vault Stream"
+    else:
+        # Autonomous Web Crawler Engine
+        stream_internal_url = crawl_web_stream(creator_name)
+        source_label = "● AI Autonomous Web Stream"
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Active Video Link: #{clean_tag}</div>
+        <div class="aliases-sub">Live Auto-Identified: #{clean_tag}</div>
 
         <div class="links-gate-box" id="linksGateCard">
             <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
@@ -472,7 +501,7 @@ async def scan(
         <div class="links-unlocked" id="linksVault">
             <div style="font-size:11px; font-weight:700; color:#22c55e; text-transform:uppercase; margin-bottom:6px;">● Direct Web Stream Mirrors (In-Page)</div>
             <div class="match-item" onclick="playInPageVideo('{stream_internal_url}')">
-                <span class="match-title">▶ Play Verified Web Stream Mirror ({creator_name})</span>
+                <span class="match-title">▶ Play Full Web Stream Mirror ({creator_name})</span>
                 <span class="badge-source badge-stream">[Play On Page] ↗</span>
             </div>
             <a href="https://www.reddit.com/r/tipofmypenis/search/?q={urllib.parse.quote(creator_name)}" target="_blank" class="match-item">
@@ -484,13 +513,13 @@ async def scan(
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
-                <span style="font-size:11px; color:#22c55e; font-weight:800;">● Active CDN Video</span>
+                <span style="font-size:11px; color:#22c55e; font-weight:800;">{source_label}</span>
             </div>
 
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Live Preview Stream</div>
-                    <div class="tier-sub">Instant playback • Fast global CDN</div>
+                    <div class="tier-sub">Autonomous Web Buffer • Direct Playback</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
@@ -498,7 +527,7 @@ async def scan(
                 </div>
             </div>
 
-            <!-- In-Page Player Element -->
+            <!-- In-Page Autonomous Player -->
             <div class="free-player-box" id="freePlayer">
                 <video id="mainVideoElement" controls playsinline preload="auto" poster="{target_img_display}" src="{stream_internal_url}">
                     Your browser does not support video playback.
