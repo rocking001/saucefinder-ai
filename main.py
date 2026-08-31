@@ -40,22 +40,13 @@ tg_client = Client(
     in_memory=True
 )
 
-resolved_chat_id = TG_CHAT_ID
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global resolved_chat_id
     try:
         await tg_client.start()
         print("Telegram MTProto Connected & Ready!")
-        # Auto discover available chats to resolve access hash
-        async for dialog in tg_client.get_dialogs():
-            if dialog.chat and str(dialog.chat.id).endswith("1184901229"):
-                resolved_chat_id = dialog.chat.id
-                print(f"Auto-resolved target channel peer: {resolved_chat_id}")
-                break
     except Exception as e:
-        print(f"Telegram client startup error: {e}")
+        print(f"Telegram start log: {e}")
     yield
     try:
         await tg_client.stop()
@@ -196,6 +187,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
 .btn-play-free { background: #2563eb; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; }
 .btn-unlock-vip { background: #eab308; color: #000; border: none; padding: 7px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
 
+/* In-Page Video Player */
 .free-player-box { display: block; margin-top: 12px; border-radius: 10px; overflow: hidden; background: #000; border: 1px solid rgba(56, 189, 248, 0.2); }
 .free-player-box video { width: 100%; max-height: 260px; display: block; background: #000; }
 
@@ -239,7 +231,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Niks Indian, Rose Noir, Alyx Star">
+                <input type="text" name="keyword_name" placeholder="e.g. Rohit, Niks Indian, Alyx Star">
             </div>
 
             <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
@@ -319,7 +311,7 @@ function playInPageVideo(videoUrl) {
     if (!videoElem) return;
     
     videoElem.onerror = function() {
-        console.log('Switching to secondary CDN mirror...');
+        console.log('Switching to backup mirror...');
         videoElem.src = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
         videoElem.load();
         videoElem.play();
@@ -330,9 +322,7 @@ function playInPageVideo(videoUrl) {
     videoElem.scrollIntoView({ behavior: 'smooth' });
     const playPromise = videoElem.play();
     if (playPromise !== undefined) {
-        playPromise.catch(error => {
-            console.log('Autoplay caught:', error);
-        });
+        playPromise.catch(error => console.log('Autoplay handled:', error));
     }
 }
 
@@ -397,33 +387,33 @@ def reverse_image_recognize(image_url: str):
     return "Verified Creator"
 
 async def get_stream_url_for_query(query_name: str) -> str:
-    global resolved_chat_id
     try:
         if tg_client.is_connected:
             clean_q = query_name.lower().replace(" ", "")
-            async for message in tg_client.get_chat_history(resolved_chat_id, limit=20):
+            # Read directly without restricted bot methods
+            async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=10):
                 caption = (message.caption or "").lower()
                 if message.video or message.document:
                     if not query_name or clean_q in caption or f"#{clean_q}" in caption:
                         return f"/stream_msg/{message.id}"
-            async for message in tg_client.get_chat_history(resolved_chat_id, limit=20):
+            # Fallback to latest video
+            async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=10):
                 if message.video or message.document:
                     return f"/stream_msg/{message.id}"
     except Exception as e:
-        print(f"Fallback due to peer: {e}")
+        print(f"Direct stream fallback: {e}")
     return WORKING_MIRRORS[0]
 
 @app.get("/stream_msg/{msg_id}")
 async def stream_telegram_message(msg_id: int, range: Optional[str] = Header(None)):
-    global resolved_chat_id
     try:
         if not tg_client.is_connected:
             await tg_client.start()
 
-        msg = await tg_client.get_messages(resolved_chat_id, msg_id)
+        msg = await tg_client.get_messages(TG_CHAT_ID, msg_id)
         media = msg.video or msg.document
         if not media:
-            raise Exception("No media found")
+            raise Exception("No media in message")
 
         file_size = media.file_size
         offset = 0
@@ -449,7 +439,7 @@ async def stream_telegram_message(msg_id: int, range: Optional[str] = Header(Non
         }
         return StreamingResponse(file_chunk_generator(), status_code=206 if range else 200, headers=headers)
     except Exception as e:
-        print(f"Streaming fallback: {e}")
+        print(f"Stream fallback: {e}")
         req = requests.get(WORKING_MIRRORS[0], stream=True)
         return StreamingResponse(req.iter_content(chunk_size=1024*512), media_type="video/mp4")
 
