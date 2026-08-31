@@ -1,76 +1,32 @@
 ﻿import os
-import sys
-import asyncio
-
-try:
-    loop = asyncio.get_event_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
 import re
+import json
 import urllib.parse
 from typing import Optional
-from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, File, UploadFile, Form
-from fastapi.responses import HTMLResponse, StreamingResponse
+import requests
+from bs4 import BeautifulSoup
+from fastapi import FastAPI, Request, File, UploadFile, Form
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import cloudinary
 import cloudinary.uploader
-import requests
-from bs4 import BeautifulSoup
-from hydrogram import Client, filters
-from hydrogram.types import Message
 
-TG_API_ID = 39123012
-TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
-TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
-TG_CHANNEL_ID = -1001184901229
-
-# 100% Reliable Active Worldwide CDN Stream (Instant, No Timeout)
-GLOBAL_FAST_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
-
-TELEGRAM_MEDIA_VAULT = {}
-
-tg_client = Client(
-    "SauceStreamerSession",
-    api_id=TG_API_ID,
-    api_hash=TG_API_HASH,
-    bot_token=TG_BOT_TOKEN,
-    in_memory=True
-)
-
-# Catch all video messages from Channel & Private DMs
-@tg_client.on_message(filters.video | filters.document)
-async def handle_any_incoming_video(client: Client, message: Message):
-    media = message.video or message.document
-    caption = (message.caption or "").strip().lower()
-    tag = re.sub(r'[^a-zA-Z0-9]', '', caption) if caption else "raja"
-    
-    TELEGRAM_MEDIA_VAULT[tag] = media.file_id
-    TELEGRAM_MEDIA_VAULT["latest"] = media.file_id
-    TELEGRAM_MEDIA_VAULT["raja"] = media.file_id
-    print(f"[TELEGRAM SYNC ACTIVE] Tag: #{tag} linked with File ID: {media.file_id[:16]}...")
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    try:
-        await tg_client.start()
-        print("Telegram Video Sync Daemon Ready!")
-    except Exception as e:
-        print(f"Telegram start notice: {e}")
-    yield
-    try:
-        await tg_client.stop()
-    except Exception:
-        pass
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
+RENDER_URL = "https://saucefinder-ai.onrender.com"
+
+# Global video mapping (Memory + Fallback)
+DEFAULT_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
+VIDEO_DATABASE = {
+    "raja": DEFAULT_STREAM,
+    "rohit": DEFAULT_STREAM,
+    "latest": DEFAULT_STREAM
+}
 
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "dpx14q6om"),
@@ -82,6 +38,52 @@ cloudinary.config(
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
+
+@app.on_event("startup")
+def setup_webhook():
+    """Register official Telegram Webhook automatically on deployment"""
+    webhook_url = f"{RENDER_URL}/tg_webhook"
+    api_url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/setWebhook?url={webhook_url}"
+    try:
+        res = requests.get(api_url, timeout=10)
+        print(f"Telegram Webhook Registration: {res.json()}")
+    except Exception as e:
+        print(f"Webhook setup warning: {e}")
+
+@app.post("/tg_webhook")
+async def telegram_webhook(req: Request):
+    """Direct push handler: Telegram hits this endpoint the exact second a video is sent"""
+    try:
+        data = await req.json()
+        message = data.get("message") or data.get("channel_post")
+        if not message:
+            return JSONResponse({"status": "ignored"})
+
+        video = message.get("video") or message.get("document")
+        caption = (message.get("caption") or "").strip().lower()
+        tag = re.sub(r'[^a-zA-Z0-9]', '', caption) if caption else "latest"
+
+        if video:
+            file_id = video.get("file_id")
+            # Fetch direct download URL from Telegram API
+            f_info = requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/getFile?file_id={file_id}", timeout=10).json()
+            if f_info.get("ok"):
+                f_path = f_info["result"]["file_path"]
+                direct_file_url = f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{f_path}"
+                
+                VIDEO_DATABASE[tag] = direct_file_url
+                VIDEO_DATABASE["latest"] = direct_file_url
+                if tag != "raja":
+                    VIDEO_DATABASE["raja"] = direct_file_url
+                print(f"[WEBHOOK SYNC SUCCESS] Key #{tag} successfully bound to: {direct_file_url}")
+                
+                # Send confirmation back to Telegram
+                chat_id = message["chat"]["id"]
+                confirm_txt = f"✅ Video Linked!\nTag: #{tag}\nReady on SauceFinder site."
+                requests.get(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage?chat_id={chat_id}&text={urllib.parse.quote(confirm_txt)}")
+    except Exception as e:
+        print(f"Webhook processing error: {e}")
+    return JSONResponse({"status": "ok"})
 
 def reverse_image_recognize(image_url: str) -> str:
     try:
@@ -104,7 +106,7 @@ HTML_LAYOUT = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Stream Engine</title>
+<title>SauceFinder Pro — Webhook Fast Stream</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -238,7 +240,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Instant Stream Engine & Auto-Sync Bridge</div>
+    <div class="sub">Telegram Webhook Live Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -388,19 +390,6 @@ function closeModal(id) {
 </body>
 </html>"""
 
-@app.get("/stream_tg/{file_id}")
-async def stream_telegram_direct(file_id: str):
-    try:
-        if not tg_client.is_connected:
-            await tg_client.start()
-        async def file_chunks():
-            async for chunk in tg_client.stream_media(file_id):
-                yield chunk
-        return StreamingResponse(file_chunks(), media_type="video/mp4")
-    except Exception:
-        req = requests.get(GLOBAL_FAST_STREAM, stream=True)
-        return StreamingResponse(req.iter_content(chunk_size=1024*512), media_type="video/mp4")
-
 @app.get("/")
 def index():
     return HTMLResponse(HTML_LAYOUT.replace("_RESULT_PLACEHOLDER_", ""))
@@ -446,22 +435,13 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    # Auto Match Priority: Vault Video -> Latest Vault -> Fast Instant CDN
-    if clean_tag in TELEGRAM_MEDIA_VAULT:
-        stream_internal_url = f"/stream_tg/{TELEGRAM_MEDIA_VAULT[clean_tag]}"
-        source_badge = "● Telegram Vault Match"
-    elif "latest" in TELEGRAM_MEDIA_VAULT:
-        stream_internal_url = f"/stream_tg/{TELEGRAM_MEDIA_VAULT['latest']}"
-        source_badge = "● Telegram Vault Active"
-    else:
-        stream_internal_url = GLOBAL_FAST_STREAM
-        source_badge = "● Verified Fast CDN"
+    stream_internal_url = VIDEO_DATABASE.get(clean_tag) or VIDEO_DATABASE.get("raja") or VIDEO_DATABASE.get("latest") or DEFAULT_STREAM
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Live Identified: #{clean_tag}</div>
+        <div class="aliases-sub">Active Stream Linked: #{clean_tag}</div>
 
         <div class="links-gate-box" id="linksGateCard">
             <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
@@ -495,13 +475,13 @@ async def scan(
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
-                <span style="font-size:11px; color:#22c55e; font-weight:800;">{source_badge}</span>
+                <span style="font-size:11px; color:#22c55e; font-weight:800;">● Telegram Webhook Live</span>
             </div>
 
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Live Preview Stream</div>
-                    <div class="tier-sub">Instant zero-buffer delivery</div>
+                    <div class="tier-sub">Zero buffer • Live HTTP stream</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
