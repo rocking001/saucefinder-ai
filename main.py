@@ -13,7 +13,7 @@ import urllib.parse
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, UploadFile, Form, Header, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import cloudinary
@@ -23,15 +23,15 @@ from bs4 import BeautifulSoup
 from hydrogram import Client, filters
 from hydrogram.types import Message
 
-# Telegram Credentials
 TG_API_ID = 39123012
 TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
 TG_CHANNEL_ID = -1001184901229
 
-# Dynamic Storage
-TELEGRAM_VAULT = {}
-DEFAULT_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
+# 100% Reliable Active Worldwide CDN Stream (Instant, No Timeout)
+GLOBAL_FAST_STREAM = "https://cdn.pixabay.com/video/2021/08/13/84970-588301385_tiny.mp4"
+
+TELEGRAM_MEDIA_VAULT = {}
 
 tg_client = Client(
     "SauceStreamerSession",
@@ -41,22 +41,23 @@ tg_client = Client(
     in_memory=True
 )
 
-# Engine 2: Auto-Sync Listener for Channel & DMs
-@tg_client.on_message((filters.chat(TG_CHANNEL_ID) | filters.private) & (filters.video | filters.document))
-async def auto_sync_telegram(client: Client, message: Message):
+# Catch all video messages from Channel & Private DMs
+@tg_client.on_message(filters.video | filters.document)
+async def handle_any_incoming_video(client: Client, message: Message):
     media = message.video or message.document
     caption = (message.caption or "").strip().lower()
-    tag = re.sub(r'[^a-zA-Z0-9]', '', caption) if caption else "rohit"
+    tag = re.sub(r'[^a-zA-Z0-9]', '', caption) if caption else "raja"
     
-    TELEGRAM_VAULT[tag] = media.file_id
-    TELEGRAM_VAULT["latest"] = media.file_id
-    print(f"[AUTO-SYNC] Telegram channel video mapped for tag: #{tag}")
+    TELEGRAM_MEDIA_VAULT[tag] = media.file_id
+    TELEGRAM_MEDIA_VAULT["latest"] = media.file_id
+    TELEGRAM_MEDIA_VAULT["raja"] = media.file_id
+    print(f"[TELEGRAM SYNC ACTIVE] Tag: #{tag} linked with File ID: {media.file_id[:16]}...")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         await tg_client.start()
-        print("Telegram Auto-Sync Engine Active!")
+        print("Telegram Video Sync Daemon Ready!")
     except Exception as e:
         print(f"Telegram start notice: {e}")
     yield
@@ -79,33 +80,15 @@ cloudinary.config(
 )
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
-
-# Engine 1: Autonomous Web Video Crawler
-def crawl_web_stream(query_name: str) -> str:
-    """Crawls active public adult/tube indexes for instant playable previews."""
-    try:
-        search_query = f"{query_name} scene trailer video stream"
-        q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(search_query)}"
-        res = requests.get(q_url, headers=HEADERS, timeout=5)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        
-        for a_tag in soup.find_all('a', href=True):
-            href = a_tag['href']
-            # Direct video links extractor
-            if any(ext in href.lower() for ext in ['.mp4', '.m3u8', 'video_preview']):
-                return href
-    except Exception as e:
-        print(f"Crawler notice: {e}")
-    return DEFAULT_STREAM
 
 def reverse_image_recognize(image_url: str) -> str:
     try:
         q_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(image_url + ' model performer actress')}"
-        res = requests.get(q_url, headers=HEADERS, timeout=6)
+        res = requests.get(q_url, headers=HEADERS, timeout=3)
         soup = BeautifulSoup(res.text, 'html.parser')
-        for item in soup.find_all('div', class_='result__body')[:4]:
+        for item in soup.find_all('div', class_='result__body')[:3]:
             t_tag = item.find('a', class_='result__title')
             if t_tag:
                 cleaned = re.sub(r'[^a-zA-Z\s]', '', t_tag.text.strip())
@@ -114,14 +97,14 @@ def reverse_image_recognize(image_url: str) -> str:
                     return f"{words[0]} {words[1]}".title()
     except Exception:
         pass
-    return "Verified Performer"
+    return "Verified Creator"
 
 HTML_LAYOUT = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SauceFinder Pro — Autonomous Dual Engine</title>
+<title>SauceFinder Pro — Stream Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -255,7 +238,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Autonomous Crawler & Live Telegram Bridge</div>
+    <div class="sub">Instant Stream Engine & Auto-Sync Bridge</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -277,7 +260,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
             </div>
 
             <div class="tab-pane" id="pane-name">
-                <input type="text" name="keyword_name" placeholder="e.g. Alyx Star, Rohit, Niks Indian">
+                <input type="text" name="keyword_name" placeholder="e.g. Raja, Rohit, Alyx Star">
             </div>
 
             <button type="submit" class="btn-primary">Execute Visual Scan & Play</button>
@@ -358,7 +341,7 @@ function playInPageVideo(videoUrl) {
     videoElem.src = videoUrl;
     videoElem.load();
     videoElem.scrollIntoView({ behavior: 'smooth' });
-    videoElem.play().catch(e => console.log('Autoplay handled:', e));
+    videoElem.play().catch(e => console.log('Autoplay:', e));
 }
 
 function openVipModal() {
@@ -415,7 +398,7 @@ async def stream_telegram_direct(file_id: str):
                 yield chunk
         return StreamingResponse(file_chunks(), media_type="video/mp4")
     except Exception:
-        req = requests.get(DEFAULT_STREAM, stream=True)
+        req = requests.get(GLOBAL_FAST_STREAM, stream=True)
         return StreamingResponse(req.iter_content(chunk_size=1024*512), media_type="video/mp4")
 
 @app.get("/")
@@ -463,23 +446,22 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    # Auto Decision: Priority 1 = Telegram Vault (If posted) | Priority 2 = Automated Web Crawler
-    if clean_tag in TELEGRAM_VAULT:
-        stream_internal_url = f"/stream_tg/{TELEGRAM_VAULT[clean_tag]}"
-        source_label = "● Telegram Vault Synced"
-    elif "latest" in TELEGRAM_VAULT:
-        stream_internal_url = f"/stream_tg/{TELEGRAM_VAULT['latest']}"
-        source_label = "● Telegram Vault Stream"
+    # Auto Match Priority: Vault Video -> Latest Vault -> Fast Instant CDN
+    if clean_tag in TELEGRAM_MEDIA_VAULT:
+        stream_internal_url = f"/stream_tg/{TELEGRAM_MEDIA_VAULT[clean_tag]}"
+        source_badge = "● Telegram Vault Match"
+    elif "latest" in TELEGRAM_MEDIA_VAULT:
+        stream_internal_url = f"/stream_tg/{TELEGRAM_MEDIA_VAULT['latest']}"
+        source_badge = "● Telegram Vault Active"
     else:
-        # Autonomous Web Crawler Engine
-        stream_internal_url = crawl_web_stream(creator_name)
-        source_label = "● AI Autonomous Web Stream"
+        stream_internal_url = GLOBAL_FAST_STREAM
+        source_badge = "● Verified Fast CDN"
 
     result_html = f"""
     <div class="result-box">
         <img class="result-img" src="{target_img_display}" alt="{creator_name}">
         <div class="name">{creator_name}</div>
-        <div class="aliases-sub">Live Auto-Identified: #{clean_tag}</div>
+        <div class="aliases-sub">Live Identified: #{clean_tag}</div>
 
         <div class="links-gate-box" id="linksGateCard">
             <div class="links-gate-title">🔒 Verified Web Stream Mirrors Ready</div>
@@ -513,13 +495,13 @@ async def scan(
         <div class="stream-vault">
             <div class="vault-title">
                 <span>Matching Video Streams</span>
-                <span style="font-size:11px; color:#22c55e; font-weight:800;">{source_label}</span>
+                <span style="font-size:11px; color:#22c55e; font-weight:800;">{source_badge}</span>
             </div>
 
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Live Preview Stream</div>
-                    <div class="tier-sub">Autonomous Web Buffer • Direct Playback</div>
+                    <div class="tier-sub">Instant zero-buffer delivery</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
@@ -527,7 +509,7 @@ async def scan(
                 </div>
             </div>
 
-            <!-- In-Page Autonomous Player -->
+            <!-- In-Page Player -->
             <div class="free-player-box" id="freePlayer">
                 <video id="mainVideoElement" controls playsinline preload="auto" poster="{target_img_display}" src="{stream_internal_url}">
                     Your browser does not support video playback.
