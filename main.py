@@ -1,5 +1,6 @@
 ﻿import os
 import sys
+import json
 import asyncio
 
 try:
@@ -20,12 +21,17 @@ import cloudinary
 import cloudinary.uploader
 import requests
 from bs4 import BeautifulSoup
-from hydrogram import Client
+from hydrogram import Client, filters
+from hydrogram.types import Message
 
 TG_API_ID = 39123012
 TG_API_HASH = "2378b9a8abfaab8f0cbe38357b6f15be"
 TG_BOT_TOKEN = "8888875009:AAG1O5DwF1ZHhbvWlVgp7ImsOONbhwEEq0M"
-TG_CHAT_ID = -1001184901229
+
+DATA_FILE = "video_registry.json"
+if not os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump({}, f)
 
 WORKING_MIRRORS = [
     "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
@@ -40,13 +46,57 @@ tg_client = Client(
     in_memory=True
 )
 
+def save_video_entry(name_key: str, file_id: str, file_size: int):
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    data[name_key.lower().strip()] = {"file_id": file_id, "size": file_size}
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+def get_video_entry(query: str):
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        q = query.lower().strip()
+        for k, v in data.items():
+            if q in k or k in q:
+                return v
+        if data:
+            return list(data.values())[-1]
+    except Exception:
+        pass
+    return None
+
+# Auto-capture any video sent directly to the bot PM
+@tg_client.on_message(filters.private & (filters.video | filters.document))
+async def handle_direct_video(client: Client, message: Message):
+    media = message.video or message.document
+    caption = (message.caption or "").strip()
+    tag_name = caption if caption else "rohit"
+    
+    clean_name = re.sub(r'[^a-zA-Z0-9\s]', '', tag_name).strip()
+    if not clean_name:
+        clean_name = "trending"
+        
+    save_video_entry(clean_name, media.file_id, media.file_size)
+    await message.reply_text(
+        f"✅ Video Indexed Successfully!\n\n"
+        f"Name: {clean_name.title()}\n"
+        f"Size: {media.file_size / (1024*1024):.1f} MB\n"
+        f"Ready to stream on SauceFinder."
+    )
+    print(f"[INDEXED] Added video for '{clean_name}' (Size: {media.file_size})")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         await tg_client.start()
-        print("Telegram MTProto Connected & Ready!")
+        print("Bot Direct Receiver Started Successfully!")
     except Exception as e:
-        print(f"Telegram start log: {e}")
+        print(f"Telegram client error: {e}")
     yield
     try:
         await tg_client.stop()
@@ -209,7 +259,7 @@ button.btn-primary { width: 100%; padding: 13px; background: linear-gradient(135
         <div class="logo-icon">S</div>
         <h1 class="title">SauceFinder Pro</h1>
     </div>
-    <div class="sub">Instant Web Stream & Recognition Engine</div>
+    <div class="sub">Direct Inbox Stream & Recognition Engine</div>
 
     <div class="glass-card">
         <div class="tabs">
@@ -386,58 +436,22 @@ def reverse_image_recognize(image_url: str):
         pass
     return "Verified Creator"
 
-async def get_stream_url_for_query(query_name: str) -> str:
-    try:
-        if tg_client.is_connected:
-            clean_q = query_name.lower().replace(" ", "")
-            # Read directly without restricted bot methods
-            async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=10):
-                caption = (message.caption or "").lower()
-                if message.video or message.document:
-                    if not query_name or clean_q in caption or f"#{clean_q}" in caption:
-                        return f"/stream_msg/{message.id}"
-            # Fallback to latest video
-            async for message in tg_client.get_chat_history(TG_CHAT_ID, limit=10):
-                if message.video or message.document:
-                    return f"/stream_msg/{message.id}"
-    except Exception as e:
-        print(f"Direct stream fallback: {e}")
-    return WORKING_MIRRORS[0]
-
-@app.get("/stream_msg/{msg_id}")
-async def stream_telegram_message(msg_id: int, range: Optional[str] = Header(None)):
+@app.get("/stream_file/{file_id}")
+async def stream_telegram_file(file_id: str, range: Optional[str] = Header(None)):
     try:
         if not tg_client.is_connected:
             await tg_client.start()
 
-        msg = await tg_client.get_messages(TG_CHAT_ID, msg_id)
-        media = msg.video or msg.document
-        if not media:
-            raise Exception("No media in message")
-
-        file_size = media.file_size
-        offset = 0
-        limit = file_size
-
-        if range:
-            range_match = re.match(r"bytes=(\d+)-(\d+)?", range)
-            if range_match:
-                start = int(range_match.group(1))
-                end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
-                offset = start
-                limit = (end - start) + 1
-
+        # Stream directly using Pyrogram File ID
         async def file_chunk_generator():
-            async for chunk in tg_client.stream_media(msg, offset=offset, limit=limit):
+            async for chunk in tg_client.stream_media(file_id):
                 yield chunk
 
         headers = {
-            "Content-Range": f"bytes {offset}-{offset + limit - 1}/{file_size}",
             "Accept-Ranges": "bytes",
-            "Content-Length": str(limit),
             "Content-Type": "video/mp4"
         }
-        return StreamingResponse(file_chunk_generator(), status_code=206 if range else 200, headers=headers)
+        return StreamingResponse(file_chunk_generator(), media_type="video/mp4", headers=headers)
     except Exception as e:
         print(f"Stream fallback: {e}")
         req = requests.get(WORKING_MIRRORS[0], stream=True)
@@ -488,7 +502,11 @@ async def scan(
     onlyfans_url = f"https://onlyfans.com/{clean_tag}"
     fansly_url = f"https://fansly.com/{clean_tag}"
 
-    stream_internal_url = await get_stream_url_for_query(creator_name)
+    matched_entry = get_video_entry(creator_name)
+    if matched_entry:
+        stream_internal_url = f"/stream_file/{matched_entry['file_id']}"
+    else:
+        stream_internal_url = WORKING_MIRRORS[0]
 
     result_html = f"""
     <div class="result-box">
@@ -534,7 +552,7 @@ async def scan(
             <div class="tier-item">
                 <div>
                     <div class="tier-info">480p SD Preview Stream</div>
-                    <div class="tier-sub">Standard resolution • Web Native Stream</div>
+                    <div class="tier-sub">Standard resolution • Direct In-Page Stream</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span class="tier-badge-free">FREE</span>
@@ -542,6 +560,7 @@ async def scan(
                 </div>
             </div>
 
+            <!-- In-Page Player Element -->
             <div class="free-player-box" id="freePlayer">
                 <video id="mainVideoElement" controls playsinline preload="auto" poster="{target_img_display}">
                     <source src="{stream_internal_url}" type="video/mp4">
